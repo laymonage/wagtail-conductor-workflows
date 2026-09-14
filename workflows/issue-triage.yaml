@@ -1,0 +1,151 @@
+workflow:
+  name: wagtail_issue_triage
+  description: >
+    Triage newly opened (or reopened) Wagtail issues by template type — apply
+    component labels, verify bug reproductions, and post one summary comment.
+    Local port of the original GitHub Agentic Workflow: fetching and all GitHub
+    writes go through the gh CLI on the local machine.
+  entry_point: prefetch_context
+
+  limits:
+    max_iterations: 20
+    timeout_seconds: 3600
+
+  metadata:
+    emoji: 🔍
+    origin: issue-triage.md (gh-aw)
+
+  input:
+    issue_number:
+      type: string
+      required: true
+      description: "The GitHub issue number to triage"
+    repository:
+      type: string
+      required: false
+      default: "wagtail/wagtail"
+      description: "GitHub repository (owner/name) containing the issue"
+    wagtail_dir:
+      type: string
+      required: false
+      default: "../wagtail"
+      description: "Path to a local Wagtail checkout used for reproduction and source inspection (relative paths resolve against the workflows/ directory)"
+
+agents:
+  # --- Prefetch: same data the gh-aw `run:` step collected, via local gh CLI ---
+  - name: prefetch_context
+    type: script
+    description: "Fetch issue, component labels, similar issues, and prior triage comments"
+    command: bash
+    args:
+      - "-c"
+      - |
+        set -euo pipefail
+        ISSUE_NUMBER="{{ workflow.input.issue_number }}"
+        REPO="{{ workflow.input.repository }}"
+        DATA_DIR="{{ workflow.dir }}/triage-data/$ISSUE_NUMBER"
+        mkdir -p "$DATA_DIR"
+
+        gh api "repos/$REPO/issues/$ISSUE_NUMBER" \
+          --jq '{number, title, body, author: .user.login, author_association, labels: [.labels[].name]}' \
+          > "$DATA_DIR/issue.json"
+
+        # Component labels are filtered by the agent from the local snapshot
+        # in data/labels.json; regenerate the snapshot only if missing.
+        LABELS_FILE="{{ workflow.dir }}/../data/labels.json"
+        if [ ! -f "$LABELS_FILE" ]; then
+          echo "data/labels.json not found — fetching labels from GitHub"
+          gh label list --repo "$REPO" --json name,color,description --limit 400 \
+            > "$LABELS_FILE"
+        fi
+
+        gh issue list --repo "$REPO" --state all --limit 30 \
+          --search "$(jq -r .title "$DATA_DIR/issue.json")" \
+          --json number,title,state,labels \
+          > "$DATA_DIR/similar_issues.json" || echo '[]' > "$DATA_DIR/similar_issues.json"
+
+        gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments" --paginate \
+          --jq '[.[] | select(.body | contains("<!-- workflow:issue-triage -->")) | {author: .user.login, created_at, body: .body[0:600]}]' \
+          > "$DATA_DIR/prior_triage.json" || echo '[]' > "$DATA_DIR/prior_triage.json"
+
+        echo "prefetched to $DATA_DIR"
+    routes:
+      - to: triage_agent
+        when: "exit_code == 0"
+      - to: prefetch_failed
+
+  - name: prefetch_failed
+    type: terminate
+    status: failed
+    reason: "Could not prefetch triage context: {{ prefetch_context.output.stderr }}"
+
+  # --- The triage agent: decides, never writes ---
+  - name: triage_agent
+    prompt: !file ../prompts/issue-triage.md
+    working_dir: "{{ workflow.input.wagtail_dir }}"
+    max_agent_iterations: 40
+    output:
+      action:
+        type: string
+        enum: ["triage", "noop"]
+        description: "triage = apply labels/comment/body update; noop = take no action"
+      noop_reason:
+        type: string
+        nullable: true
+        description: "Short reason when action is noop, else null"
+      comment:
+        type: string
+        nullable: true
+        description: "The single Markdown comment to post, else null"
+      labels_to_add:
+        type: array
+        description: "component:* labels (max 3) and optionally status:Needs Community Feedback"
+      labels_to_remove:
+        type: array
+        description: "At most one of status:Unconfirmed / status:Needs Review"
+      issue_body:
+        type: string
+        nullable: true
+        description: "Complete updated issue body, or null to leave untouched"
+    routes:
+      - to: noop_end
+        when: "action == 'noop'"
+      - to: apply_outputs
+
+  - name: noop_end
+    type: terminate
+    status: success
+    reason: "No triage action taken: {{ triage_agent.output.noop_reason }}"
+
+  # --- Apply safe outputs: deterministic script enforcing the gh-aw contract ---
+  - name: apply_outputs
+    type: script
+    description: "Apply labels, body update, and post the single comment via gh CLI"
+    command: python3
+    args:
+      - "{{ workflow.dir }}/../scripts/apply_triage_outputs.py"
+      - "{{ workflow.input.repository }}"
+      - "{{ workflow.input.issue_number }}"
+    stdin: "{{ triage_agent.output | tojson }}"
+    output:
+      labels_added:
+        type: array
+      labels_removed:
+        type: array
+      body_updated:
+        type: boolean
+      comment_posted:
+        type: boolean
+      errors:
+        type: array
+    routes:
+      - to: $end
+
+output:
+  action: "{% if triage_agent is defined %}{{ triage_agent.output.action }}{% else %}not_run{% endif %}"
+  noop_reason: "{% if triage_agent is defined %}{{ triage_agent.output.noop_reason }}{% else %}null{% endif %}"
+  labels_added: "{% if apply_outputs is defined %}{{ apply_outputs.output.labels_added }}{% else %}[]{% endif %}"
+  labels_removed: "{% if apply_outputs is defined %}{{ apply_outputs.output.labels_removed }}{% else %}[]{% endif %}"
+  body_updated: "{% if apply_outputs is defined %}{{ apply_outputs.output.body_updated }}{% else %}false{% endif %}"
+  comment_posted: "{% if apply_outputs is defined %}{{ apply_outputs.output.comment_posted }}{% else %}false{% endif %}"
+  errors: "{% if apply_outputs is defined %}{{ apply_outputs.output.errors }}{% else %}['workflow did not reach apply step']{% endif %}"
