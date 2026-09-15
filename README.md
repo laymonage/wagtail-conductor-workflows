@@ -46,6 +46,8 @@ workflows/
     ├── workflow.yaml               # workflow definition
     ├── issue-triage.md             # agent prompt
     ├── apply_triage_outputs.py     # deterministic safe-outputs applier
+    ├── skills/run-tests/SKILL.md   # Wagtail test-suite conventions (loaded
+                                    #   by the triage agent on demand)
     └── labels.json                 # label snapshot (component labels are
                                     #   filtered from this, not fetched)
 ```
