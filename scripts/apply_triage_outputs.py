@@ -2,7 +2,8 @@
 """Apply triage outputs to a GitHub issue.
 
 Mirrors the gh-aw safe-outputs contract of the original workflow:
-  add-labels:    allowed "component:*" and "status:Needs Community Feedback", max 4
+  add-labels:    allowed "component:*", "status:Needs Community Feedback" and
+                 "status:Needs Info", max 4
   remove-labels: allowed "status:Unconfirmed" and "status:Needs Review", max 1
   update-issue:  body only, max 1
   add-comment:   max 1
@@ -19,7 +20,7 @@ import subprocess
 import sys
 
 ALLOWED_ADD_PREFIXES = ("component:",)
-ALLOWED_ADD_EXACT = ("status:Needs Community Feedback",)
+ALLOWED_ADD_EXACT = ("status:Needs Community Feedback", "status:Needs Info")
 ALLOWED_REMOVE = ("status:Unconfirmed", "status:Needs Review")
 MAX_ADD = 4
 MAX_REMOVE = 1

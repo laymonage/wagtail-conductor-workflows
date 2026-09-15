@@ -43,7 +43,7 @@ agents:
         set -euo pipefail
         ISSUE_NUMBER="{{ workflow.input.issue_number }}"
         REPO="{{ workflow.input.repository }}"
-        DATA_DIR="{{ workflow.dir }}/triage-data/$ISSUE_NUMBER"
+        DATA_DIR="{{ workflow.dir }}/.issue-triage/$ISSUE_NUMBER/data"
         mkdir -p "$DATA_DIR"
 
         gh api "repos/$REPO/issues/$ISSUE_NUMBER" \
@@ -64,9 +64,12 @@ agents:
           --json number,title,state,labels \
           > "$DATA_DIR/similar_issues.json" || echo '[]' > "$DATA_DIR/similar_issues.json"
 
+        # Full comment history — prior triage runs are derived from it locally.
         gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments" --paginate \
-          --jq '[.[] | select(.body | contains("<!-- workflow:issue-triage -->")) | {author: .user.login, created_at, body: .body[0:600]}]' \
-          > "$DATA_DIR/prior_triage.json" || echo '[]' > "$DATA_DIR/prior_triage.json"
+          > "$DATA_DIR/comments.json"
+
+        jq '[.[] | select(.body | contains("<!-- workflow:issue-triage -->")) | {author: .user.login, created_at, body}]' \
+          "$DATA_DIR/comments.json" > "$DATA_DIR/prior_triage.json"
 
         echo "prefetched to $DATA_DIR"
     routes:
@@ -83,7 +86,7 @@ agents:
   - name: triage_agent
     prompt: !file ../prompts/issue-triage.md
     working_dir: "{{ workflow.input.wagtail_dir }}"
-    max_agent_iterations: 40
+    max_agent_iterations: 100
     output:
       action:
         type: string
@@ -99,7 +102,7 @@ agents:
         description: "The single Markdown comment to post, else null"
       labels_to_add:
         type: array
-        description: "component:* labels (max 3) and optionally status:Needs Community Feedback"
+        description: "component:* labels (max 3) and optionally status:Needs Community Feedback or status:Needs Info"
       labels_to_remove:
         type: array
         description: "At most one of status:Unconfirmed / status:Needs Review"
