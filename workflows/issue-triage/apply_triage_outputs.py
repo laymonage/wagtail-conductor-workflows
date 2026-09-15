@@ -3,14 +3,14 @@
 
 Enforces the safe-outputs contract of the original workflow:
   add-labels:    allowed "component:*", "status:Needs Community Feedback" and
-                 "status:Needs Info", max 4
+                 "status:Needs Info"; max 3 component + 1 status
   remove-labels: allowed "status:Unconfirmed" and "status:Needs Review", max 1
   update-issue:  body only, max 1
   add-comment:   max 1
 
 Reads the triage agent's structured JSON output on stdin:
-  { "comment": str|null, "labels_to_add": [..], "labels_to_remove": [..],
-    "issue_body": str|null }
+  { "comment": str|null, "reproduced": bool|null, "labels_to_add": [..],
+    "labels_to_remove": [..], "issue_body": str|null }
 
 Usage: apply_triage_outputs.py <repo> <issue-number> [output-path]
 Writes a JSON result object to stdout; keeps stdout clean of logs.
@@ -25,7 +25,8 @@ from pathlib import Path
 ALLOWED_ADD_PREFIXES = ("component:",)
 ALLOWED_ADD_EXACT = ("status:Needs Community Feedback", "status:Needs Info")
 ALLOWED_REMOVE = ("status:Unconfirmed", "status:Needs Review")
-MAX_ADD = 4
+MAX_COMPONENT_ADD = 3
+MAX_STATUS_ADD = 1
 MAX_REMOVE = 1
 
 # Prepended to every posted comment so readers know a machine wrote it.
@@ -67,14 +68,39 @@ def main():
         out_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         result["output_saved_to"] = str(out_path)
 
-    # --- add-labels (allowlist + cap) ---
-    adds = []
-    for label in data.get("labels_to_add") or []:
-        if not isinstance(label, str):
-            continue
-        if label.startswith(ALLOWED_ADD_PREFIXES) or label in ALLOWED_ADD_EXACT:
-            adds.append(label)
-    adds = list(dict.fromkeys(adds))[:MAX_ADD]
+    # --- compute label changes (allowlist + caps + swap invariant) ---
+    raw_adds = [
+        label
+        for label in (data.get("labels_to_add") or [])
+        if isinstance(label, str)
+        and (label.startswith(ALLOWED_ADD_PREFIXES) or label in ALLOWED_ADD_EXACT)
+    ]
+    components = list(
+        dict.fromkeys(l for l in raw_adds if l.startswith("component:"))
+    )[:MAX_COMPONENT_ADD]
+    statuses = list(dict.fromkeys(l for l in raw_adds if l in ALLOWED_ADD_EXACT))[
+        :MAX_STATUS_ADD
+    ]
+
+    removes = [
+        label
+        for label in (data.get("labels_to_remove") or [])
+        if isinstance(label, str) and label in ALLOWED_REMOVE
+    ]
+    removes = list(dict.fromkeys(removes))[:MAX_REMOVE]
+
+    # Deterministic backstop: removing status:Unconfirmed is only valid when
+    # the bug was reproduced, or when the swap to status:Needs Info was
+    # intended (asking the reporter for more information). Some models do the
+    # removal but forget the add; enforce the pair here.
+    if (
+        "status:Unconfirmed" in removes
+        and not data.get("reproduced")
+        and "status:Needs Info" not in statuses
+    ):
+        statuses.append("status:Needs Info")
+
+    adds = components + statuses
     if adds:
         args = ["issue", "edit", issue_number, "--repo", repo]
         for label in adds:
@@ -85,13 +111,6 @@ def main():
         else:
             result["errors"].append(f"add-labels failed: {proc.stderr.strip()}")
 
-    # --- remove-labels (allowlist + cap) ---
-    removes = [
-        label
-        for label in (data.get("labels_to_remove") or [])
-        if isinstance(label, str) and label in ALLOWED_REMOVE
-    ]
-    removes = list(dict.fromkeys(removes))[:MAX_REMOVE]
     if removes:
         args = ["issue", "edit", issue_number, "--repo", repo]
         for label in removes:

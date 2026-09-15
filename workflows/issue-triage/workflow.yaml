@@ -109,6 +109,10 @@ agents:
         type: string
         nullable: true
         description: "The single Markdown comment to post, else null"
+      reproduced:
+        type: boolean
+        nullable: true
+        description: "Bug reports only: true if you reproduced the bug, false if you did not; null for other issue types"
       labels_to_add:
         type: array
         description: "component:* labels (max 3) and optionally status:Needs Community Feedback or status:Needs Info"

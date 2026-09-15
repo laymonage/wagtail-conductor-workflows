@@ -48,8 +48,10 @@ Read `{{ workflow.dir }}/labels.json` and consider only its `component:` labels.
    - Otherwise create a fresh project from the checked-out Wagtail source: install it in editable mode, run `wagtail start` (or use the `wagtail/test` app and settings when the steps only need the test project), then follow the steps.
    - For admin UI or front-end steps, drive a real browser against the local server (Playwright via MCP, `playwright-cli`, or whatever browser automation is available).
    - Cap environment setup at roughly 10 minutes of wall clock. If setup itself fails for reasons unrelated to the report, say so explicitly rather than reporting the bug as non-reproducible.
-2. **If you cannot reproduce it and the report is missing information** (version numbers, model definitions, exact steps, traceback), replace `status:Unconfirmed` with `status:Needs Info` — include `status:Unconfirmed` in `labels_to_remove` and `status:Needs Info` in `labels_to_add`. Ask the reporter for the specific missing details in your comment. Name exactly what is missing.
-3. **If you reproduce it**, include `status:Unconfirmed` in `labels_to_remove`.
+2. **If you cannot reproduce it**, decide between exactly two outcomes:
+   - **The report is missing information** (version numbers, model definitions, exact steps, traceback), **or you need the reporter's help to pin down the trigger** — swap the labels: include `status:Unconfirmed` in `labels_to_remove` AND `status:Needs Info` in `labels_to_add`. Ask the reporter for the specific missing details in your comment and name exactly what is missing. Never remove `status:Unconfirmed` without also adding `status:Needs Info` in this case — both halves of the swap are required.
+   - **The report is complete but describes behaviour that does not exist on the current checkout** (e.g. the cited code path has moved or changed, or the behaviour is documented as intentional) — leave all `status:` labels unchanged, and say plainly in your comment what you found and why the report needs a different trigger.
+3. **If you reproduce it**, include `status:Unconfirmed` in `labels_to_remove`. Do not add any `status:` label in this case.
 4. **If the bug is expressible as a unit test** in Wagtail's existing suite (Python `TestCase` under `wagtail/**/tests/`, or a Jest test under `client/src/**`), include a runnable test snippet in your comment wrapped in a `<details>` element. Match the conventions of the nearest existing test module — same base class, same fixtures, same import style. Confirm the test fails on the current checkout — in the scratch-dir worktree, running it per the `run-tests` skill — before including it, and say whether you ran it. Suggest a likely fix and point at the responsible `file:line` if you found one.
 5. **Estimate severity and effort** in your comment:
    - Severity: data loss / security > crash or broken core workflow > degraded workflow with a workaround > cosmetic.
@@ -93,9 +95,12 @@ Return structured JSON with exactly these fields:
 - `action` — `triage` when there is something to report or change, `noop` otherwise.
 - `noop_reason` — short reason, required when `action` is `noop`; `null` otherwise.
 - `comment` — the single Markdown comment; `null` when `action` is `noop`.
+- `reproduced` — bug reports only: `true` if you reproduced the bug, `false` if you did not; `null` for other issue types.
 - `labels_to_add` — `component:*` labels (max 3) and optionally `status:Needs Community Feedback` or `status:Needs Info` (never both); empty list when none.
 - `labels_to_remove` — at most one of `status:Unconfirmed` or `status:Needs Review`; empty list when none.
 - `issue_body` — the complete updated issue body, or `null` to leave the body untouched.
+
+Label consistency: only include `status:Unconfirmed` in `labels_to_remove` when you reproduced the bug, or when you are also adding `status:Needs Info` (the not-reproduced swap).
 
 Set `action` to `noop` with a short reason when the issue does not match a known template, is spam or empty, is a duplicate of an issue already linked in `similar_issues.json`, or when you have no component label, no reproduction result, and no assessment worth posting.
 
