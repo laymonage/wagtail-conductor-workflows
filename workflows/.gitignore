@@ -1,2 +1,2 @@
-# Per-issue triage working directories (prefetched data, reproduction environments)
+# Per-run working directories (prefetched data, reproduction environments)
 .*/

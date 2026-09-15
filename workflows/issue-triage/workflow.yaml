@@ -50,7 +50,7 @@ agents:
         set -euo pipefail
         ISSUE_NUMBER="{{ workflow.input.issue_number }}"
         REPO="{{ workflow.input.repository }}"
-        DATA_DIR="{{ workflow.dir }}/.issue-triage/$ISSUE_NUMBER/data"
+        DATA_DIR="{{ workflow.dir }}/.runs/$ISSUE_NUMBER/data"
         mkdir -p "$DATA_DIR"
 
         gh api "repos/$REPO/issues/$ISSUE_NUMBER" \
@@ -59,7 +59,7 @@ agents:
 
         # Component labels are filtered by the agent from the local snapshot
         # in data/labels.json; regenerate the snapshot only if missing.
-        LABELS_FILE="{{ workflow.dir }}/data/labels.json"
+        LABELS_FILE="{{ workflow.dir }}/labels.json"
         if [ ! -f "$LABELS_FILE" ]; then
           echo "data/labels.json not found — fetching labels from GitHub"
           gh label list --repo "$REPO" --json name,color,description --limit 400 \
@@ -91,7 +91,7 @@ agents:
 
   # --- The triage agent: decides, never writes ---
   - name: triage_agent
-    prompt: !file prompts/issue-triage.md
+    prompt: !file issue-triage.md
     working_dir: "{{ workflow.input.wagtail_dir }}"
     max_agent_iterations: 100
     output:
@@ -133,7 +133,7 @@ agents:
     description: "Apply labels, body update, and post the single comment via gh CLI"
     command: python3
     args:
-      - "{{ workflow.dir }}/scripts/apply_triage_outputs.py"
+      - "{{ workflow.dir }}/apply_triage_outputs.py"
       - "{{ workflow.input.repository }}"
       - "{{ workflow.input.issue_number }}"
     stdin: "{{ triage_agent.output | tojson }}"

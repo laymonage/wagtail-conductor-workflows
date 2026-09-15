@@ -39,20 +39,21 @@ for safe outputs.
 ## Layout
 
 ```
-├── index.yaml                          # registry index
-├── README.md
-├── workflows/
-├── issue-triage.yaml               # workflow definition
-├── prompts/issue-triage.md         # agent prompt
-├── scripts/apply_triage_outputs.py # deterministic safe-outputs applier
-└── data/labels.json                # label snapshot (component labels are
+index.yaml                          # registry index
+README.md
+workflows/
+└── issue-triage/                   # one directory per workflow, assets flat
+    ├── workflow.yaml               # workflow definition
+    ├── issue-triage.md             # agent prompt
+    ├── apply_triage_outputs.py     # deterministic safe-outputs applier
+    └── labels.json                 # label snapshot (component labels are
                                     #   filtered from this, not fetched)
 ```
 
-Per-issue run artifacts are kept (not cleaned up) for review, git-ignored:
+Per-run artifacts are kept (not cleaned up) for review, git-ignored:
 
 ```
-workflows/.issue-triage/<issue>/
+workflows/issue-triage/.runs/<issue>/
 ├── data/       # prefetched issue, comments, similar issues, prior triage
 └── scratch/    # reproduction environment: bakerydemo/project clone, venv,
                 #   git worktree of the Wagtail checkout, logs
@@ -94,17 +95,17 @@ inspection).
 You can also run the YAML directly:
 
 ```bash
-conductor run workflows/issue-triage.yaml --input issue_number=1234
+conductor run workflows/issue-triage/workflow.yaml --input issue_number=1234
 ```
 
 ### Refreshing the label snapshot
 
-Component labels come from `workflows/data/labels.json`. Regenerate it when
+Component labels come from `workflows/issue-triage/labels.json`. Regenerate it when
 Wagtail's labels change:
 
 ```bash
 gh label list --repo wagtail/wagtail --json name,color,description --limit 400 \
-  > workflows/data/labels.json
+  > workflows/issue-triage/labels.json
 ```
 
 (If the snapshot is missing, the prefetch step regenerates it automatically.)
