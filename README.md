@@ -70,8 +70,9 @@ pristine.
   (`gh auth login`)
 - `jq`, Python 3
 - For runs using the bundled model config: `CONDUCTOR_WORKFLOW_API_KEY` set in
-  your environment (and optionally `CONDUCTOR_WORKFLOW_BASE_URL` to override
-  the endpoint)
+  your environment, plus two optional overrides — `CONDUCTOR_WORKFLOW_BASE_URL`
+  for the endpoint and `CONDUCTOR_WORKFLOW_MODEL` for the model (default:
+  `z-ai/glm-5.3-flash`; set it to whatever your endpoint serves)
 - A local Wagtail checkout (default: `../../../wagtail`, relative to the
   workflow's directory)
 
