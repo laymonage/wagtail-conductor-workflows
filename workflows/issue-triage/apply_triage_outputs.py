@@ -12,12 +12,15 @@ Reads the triage agent's structured JSON output on stdin:
   { "comment": str|null, "labels_to_add": [..], "labels_to_remove": [..],
     "issue_body": str|null }
 
-Usage: apply_triage_outputs.py <repo> <issue-number>
+Usage: apply_triage_outputs.py <repo> <issue-number> [output-path]
 Writes a JSON result object to stdout; keeps stdout clean of logs.
+When <output-path> is given, the triage agent's raw JSON decision is also
+written there (for review alongside the reproduction artifacts in scratch/).
 """
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 ALLOWED_ADD_PREFIXES = ("component:",)
 ALLOWED_ADD_EXACT = ("status:Needs Community Feedback", "status:Needs Info")
@@ -40,8 +43,11 @@ def gh(*args, stdin_text=None):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("usage: apply_triage_outputs.py <repo> <issue-number>", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print(
+            "usage: apply_triage_outputs.py <repo> <issue-number> [output-path]",
+            file=sys.stderr,
+        )
         sys.exit(2)
     repo, issue_number = sys.argv[1], sys.argv[2]
 
@@ -53,6 +59,13 @@ def main():
         "comment_posted": False,
         "errors": [],
     }
+
+    # Preserve the triage agent's decision in the scratch dir for review.
+    if len(sys.argv) > 3:
+        out_path = Path(sys.argv[3])
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        result["output_saved_to"] = str(out_path)
 
     # --- add-labels (allowlist + cap) ---
     adds = []

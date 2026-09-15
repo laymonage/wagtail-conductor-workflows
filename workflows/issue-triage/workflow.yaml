@@ -136,6 +136,7 @@ agents:
       - "{{ workflow.dir }}/apply_triage_outputs.py"
       - "{{ workflow.input.repository }}"
       - "{{ workflow.input.issue_number }}"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/scratch/triage-output.json"
     stdin: "{{ triage_agent.output | tojson }}"
     output:
       labels_added:

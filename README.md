@@ -56,7 +56,8 @@ Per-run artifacts are kept (not cleaned up) for review, git-ignored:
 workflows/issue-triage/.runs/<issue>/
 ├── data/       # prefetched issue, comments, similar issues, prior triage
 └── scratch/    # reproduction environment: bakerydemo/project clone, venv,
-                #   git worktree of the Wagtail checkout, logs
+                #   git worktree of the Wagtail checkout, logs, and
+                #   triage-output.json (the triage agent's decision)
 ```
 
 The agent works in a git worktree inside `scratch/` when it needs to touch
