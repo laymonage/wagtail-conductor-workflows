@@ -17,7 +17,7 @@ workflow:
       wire_api: completions         # completions | responses
       base_url: ${CONDUCTOR_WORKFLOW_BASE_URL:-https://api.tensorx.ai/v1}
       api_key: ${CONDUCTOR_WORKFLOW_API_KEY}
-    default_model: z-ai/glm-5.3-flash
+    default_model: ${CONDUCTOR_WORKFLOW_MODEL:-z-ai/glm-5.3-flash}
 
   metadata:
     emoji: 🔍
