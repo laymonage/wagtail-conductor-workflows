@@ -1,0 +1,8 @@
+# Conductor registry index — https://github.com/microsoft/conductor/blob/main/docs/design/registry.md
+workflows:
+  issue-triage:
+    description: >
+      Triage newly opened (or reopened) Wagtail issues by template type —
+      apply component labels, verify bug reproductions, and post one summary
+      comment.
+    path: workflows/issue-triage.yaml
