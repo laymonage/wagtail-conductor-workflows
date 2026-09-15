@@ -5,7 +5,7 @@ You are performing first-pass triage on issue #{{ workflow.input.issue_number }}
 The Wagtail source tree is checked out at `{{ workflow.input.wagtail_dir }}` — this is your working directory. Read these prefetched files instead of re-fetching:
 
 - `{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/data/issue.json` — the issue title, body, author, author association, current labels
-- `{{ workflow.dir }}/data/labels.json` — every label in the repo with its description (a local snapshot that may lag the live repo). Consider only the `component:` labels from it; if a component label you need seems missing, note that in your comment rather than guessing.
+- `{{ workflow.dir }}/labels.json` — every label in the repo with its description (a local snapshot that may lag the live repo). Consider only the `component:` labels from it; if a component label you need seems missing, note that in your comment rather than guessing.
 - `{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/data/similar_issues.json` — issues with similar titles, for duplicate detection (ignore the issue itself if it appears in this list)
 - `{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/data/comments.json` — the complete comment history on the issue (author, timestamp, full body)
 - `{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/data/prior_triage.json` — derived from `comments.json`: comments from previous runs of this workflow (matched by the `<!-- workflow:issue-triage -->` marker), with full bodies
@@ -31,7 +31,7 @@ This workflow may also be run on an issue that was **reopened**, so it may have 
 
 ## Step 2 — Component labels (all types)
 
-Read `{{ workflow.dir }}/data/labels.json` and consider only its `component:` labels. Choose the ones that match the area of Wagtail the issue affects, using the label descriptions and the checked-out source tree to confirm which module owns the behaviour. List them in `labels_to_add`.
+Read `{{ workflow.dir }}/labels.json` and consider only its `component:` labels. Choose the ones that match the area of Wagtail the issue affects, using the label descriptions and the checked-out source tree to confirm which module owns the behaviour. List them in `labels_to_add`.
 
 - Add at most 3 `component:` labels — prefer the most specific.
 - Add none if no component clearly applies. Do not guess.

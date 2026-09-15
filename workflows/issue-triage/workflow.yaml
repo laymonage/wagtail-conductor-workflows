@@ -58,10 +58,10 @@ agents:
           > "$DATA_DIR/issue.json"
 
         # Component labels are filtered by the agent from the local snapshot
-        # in data/labels.json; regenerate the snapshot only if missing.
+        # in labels.json; regenerate the snapshot only if missing.
         LABELS_FILE="{{ workflow.dir }}/labels.json"
         if [ ! -f "$LABELS_FILE" ]; then
-          echo "data/labels.json not found — fetching labels from GitHub"
+          echo "labels.json not found — fetching labels from GitHub"
           gh label list --repo "$REPO" --json name,color,description --limit 400 \
             > "$LABELS_FILE"
         fi
