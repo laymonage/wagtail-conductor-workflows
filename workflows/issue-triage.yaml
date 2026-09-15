@@ -3,8 +3,7 @@ workflow:
   description: >
     Triage newly opened (or reopened) Wagtail issues by template type — apply
     component labels, verify bug reproductions, and post one summary comment.
-    Local port of the original GitHub Agentic Workflow: fetching and all GitHub
-    writes go through the gh CLI on the local machine.
+    Runs locally: fetching and all GitHub writes go through the gh CLI.
   entry_point: prefetch_context
 
   limits:
@@ -22,7 +21,6 @@ workflow:
 
   metadata:
     emoji: 🔍
-    origin: issue-triage.md (gh-aw)
 
   input:
     issue_number:
@@ -41,7 +39,7 @@ workflow:
       description: "Path to a local Wagtail checkout used for reproduction and source inspection (relative paths resolve against the workflows/ directory)"
 
 agents:
-  # --- Prefetch: same data the gh-aw `run:` step collected, via local gh CLI ---
+  # --- Prefetch: issue, full comment history, similar issues, label snapshot ---
   - name: prefetch_context
     type: script
     description: "Fetch issue, component labels, similar issues, and prior triage comments"
@@ -129,7 +127,7 @@ agents:
     status: success
     reason: "No triage action taken: {{ triage_agent.output.noop_reason }}"
 
-  # --- Apply safe outputs: deterministic script enforcing the gh-aw contract ---
+  # --- Apply outputs: deterministic script enforcing the safe-outputs contract ---
   - name: apply_outputs
     type: script
     description: "Apply labels, body update, and post the single comment via gh CLI"

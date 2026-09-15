@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply triage outputs to a GitHub issue.
 
-Mirrors the gh-aw safe-outputs contract of the original workflow:
+Enforces the safe-outputs contract of the original workflow:
   add-labels:    allowed "component:*", "status:Needs Community Feedback" and
                  "status:Needs Info", max 4
   remove-labels: allowed "status:Unconfirmed" and "status:Needs Review", max 1

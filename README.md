@@ -1,10 +1,9 @@
 # Conductor workflows for Wagtail
 
 [Conductor](https://github.com/microsoft/conductor) workflows for triaging
-[Wagtail](https://github.com/wagtail/wagtail) issues — a local port of the
-original [GitHub Agentic Workflow](issue-triage.md) definition. Everything runs
-on your machine: fetching, reproduction, and all GitHub writes go through the
-`gh` CLI, acting as your authenticated account.
+[Wagtail](https://github.com/wagtail/wagtail) issues. Everything runs on your
+machine: fetching, reproduction, and all GitHub writes go through the `gh`
+CLI, acting as your authenticated account.
 
 This repository is a **Conductor registry** (see the
 [registry design doc](https://github.com/microsoft/conductor/blob/main/docs/design/registry.md)):
@@ -39,9 +38,9 @@ allowlists and caps as the original workflow's safe outputs.
 ## Layout
 
 ```
-index.yaml                          # registry index
-issue-triage.md                     # original gh-aw definition (reference)
-workflows/
+├── index.yaml                          # registry index
+├── README.md
+├── workflows/
 ├── issue-triage.yaml               # workflow definition
 ├── prompts/issue-triage.md         # agent prompt
 ├── scripts/apply_triage_outputs.py # deterministic safe-outputs applier
@@ -78,13 +77,13 @@ pristine.
 Add this repository as a local registry (once):
 
 ```bash
-conductor registry add wagtail-workflows /path/to/this/repo
+conductor registry add wagtail /path/to/this/repo
 ```
 
 Run it:
 
 ```bash
-conductor run issue-triage@wagtail-workflows --input issue_number=1234
+conductor run issue-triage@wagtail --input issue_number=1234
 ```
 
 Optional inputs: `repository` (default `wagtail/wagtail`) and `wagtail_dir`
