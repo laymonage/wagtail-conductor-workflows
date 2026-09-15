@@ -35,8 +35,8 @@ workflow:
     wagtail_dir:
       type: string
       required: false
-      default: "../wagtail"
-      description: "Path to a local Wagtail checkout used for reproduction and source inspection (relative paths resolve against the workflows/ directory)"
+      default: "../../../wagtail"
+      description: "Path to a local Wagtail checkout used for reproduction and source inspection (relative paths resolve against the workflow's directory)"
 
 agents:
   # --- Prefetch: issue, full comment history, similar issues, label snapshot ---

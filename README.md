@@ -72,7 +72,8 @@ pristine.
 - For runs using the bundled model config: `CONDUCTOR_WORKFLOW_API_KEY` set in
   your environment (and optionally `CONDUCTOR_WORKFLOW_BASE_URL` to override
   the endpoint)
-- A local Wagtail checkout (default: `../wagtail`, relative to `workflows/`)
+- A local Wagtail checkout (default: `../../../wagtail`, relative to the
+  workflow's directory)
 
 ## Usage
 
@@ -89,7 +90,7 @@ conductor run issue-triage@wagtail --input issue_number=1234
 ```
 
 Optional inputs: `repository` (default `wagtail/wagtail`) and `wagtail_dir`
-(default `../wagtail` — a local checkout used for reproduction and source
+(default `../../../wagtail` — a local checkout used for reproduction and source
 inspection).
 
 You can also run the YAML directly:
