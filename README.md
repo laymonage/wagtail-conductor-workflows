@@ -27,7 +27,8 @@ First-pass triage of a newly opened (or reopened) Wagtail issue:
 - **Feature requests / maintenance tasks**: assesses usefulness, breadth, and
   effort, checks for prior art, and adds `status:Needs Community Feedback`.
 - **Documentation issues**: proposes concrete wording improvements.
-- Posts **exactly one** comment per triage, tagged with
+- Posts **exactly one** comment per triage, prefixed with a disclaimer that it
+  was written by an AI agent and may contain mistakes, and tagged with
   `<!-- workflow:issue-triage -->` so re-runs detect prior triage and stay
   quiet unless there is something new to say.
 

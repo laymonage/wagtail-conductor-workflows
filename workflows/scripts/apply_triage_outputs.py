@@ -25,6 +25,13 @@ ALLOWED_REMOVE = ("status:Unconfirmed", "status:Needs Review")
 MAX_ADD = 4
 MAX_REMOVE = 1
 
+# Prepended to every posted comment so readers know a machine wrote it.
+DISCLAIMER = (
+    "> [!NOTE]\n"
+    "> This comment was posted by an automated AI triage agent and may contain\n"
+    "> mistakes. Please verify its findings before relying on them.\n"
+)
+
 
 def gh(*args, stdin_text=None):
     return subprocess.run(
@@ -103,6 +110,9 @@ def main():
         MARKER = "<!-- workflow:issue-triage -->"
         if MARKER not in comment:
             comment = comment.rstrip() + f"\n\n{MARKER}\n"
+        # AI disclaimer at the top, deduped in case the agent already included it.
+        if "automated AI triage agent" not in comment[:300]:
+            comment = DISCLAIMER + "\n" + comment.lstrip()
         proc = gh(
             "issue", "comment", issue_number, "--repo", repo,
             "--body-file", "-", stdin_text=comment,
