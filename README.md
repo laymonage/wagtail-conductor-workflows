@@ -33,8 +33,8 @@ First-pass triage of a newly opened (or reopened) Wagtail issue:
   quiet unless there is something new to say.
 
 The triage agent decides but never writes: labels, body updates, and the
-comment are applied by a deterministic script that enforces the same
-allowlists and caps as the original workflow's safe outputs.
+comment are applied by a deterministic script that enforces allowlists and caps
+for safe outputs.
 
 ## Layout
 
