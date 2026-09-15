@@ -11,6 +11,15 @@ workflow:
     max_iterations: 20
     timeout_seconds: 3600
 
+  runtime:
+    provider:
+      name: copilot                 # custom routing goes through the Copilot SDK
+      type: openai                  # openai | azure | anthropic
+      wire_api: completions         # completions | responses
+      base_url: ${CONDUCTOR_WORKFLOW_BASE_URL:-https://api.tensorx.ai/v1}
+      api_key: ${CONDUCTOR_WORKFLOW_API_KEY}
+    default_model: z-ai/glm-5.3-flash
+
   metadata:
     emoji: 🔍
     origin: issue-triage.md (gh-aw)
