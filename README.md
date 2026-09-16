@@ -102,9 +102,10 @@ Run it:
 conductor run issue-triage@wagtail --input issue_number=1234
 ```
 
-Optional inputs: `repository` (default `wagtail/wagtail`) and `wagtail_dir`
+Optional inputs: `repository` (default `wagtail/wagtail`), `wagtail_dir`
 (default `../../../wagtail` — a local checkout used for reproduction and source
-inspection).
+inspection) and `bakerydemo_dir` (default `../../../bakerydemo` — a local
+bakerydemo checkout used via a git worktree for bakerydemo reproductions).
 
 You can also run the YAML directly:
 
