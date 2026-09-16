@@ -4,7 +4,7 @@ You are drafting the final triage decision for issue #{{ workflow.input.issue_nu
 
 You do not perform any GitHub write operations yourself. Decide what should happen and return it as structured JSON — a separate deterministic step applies labels, updates the issue body, and posts the comment exactly once.
 
-{% if time_budget_gate is defined and time_budget_gate.choice == 'wrap_up_apply' %}
+{% if time_budget_gate is defined and time_budget_gate.output.selected == 'wrap_up_apply' %}
 ## Wrap-up mode
 
 The investigation phase ran out of its time budget, and a reviewer decided to **conclude the triage as not reproducible and post the outcome anyway**. Draft the comment as a not-reproducible outcome: summarise what was investigated and what was found, state that triage could not confirm the bug on the current checkout, and ask the reporter for the specific details that would help pin down the trigger. Set `reproduced` to `false` — the label consistency rule below then requires the `status:Unconfirmed` → `status:Needs Info` swap.
