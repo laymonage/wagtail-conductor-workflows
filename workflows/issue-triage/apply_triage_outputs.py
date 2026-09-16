@@ -32,8 +32,8 @@ MAX_REMOVE = 1
 # Prepended to every posted comment so readers know a machine wrote it.
 DISCLAIMER = (
     "> [!NOTE]\n"
-    "> This comment was posted by an automated AI triage agent and may contain\n"
-    "> mistakes. Please verify its findings before relying on them.\n"
+    "> This comment was posted by an automated AI triage agent and may contain "
+    "mistakes. Please verify its findings before relying on them.\n"
 )
 
 
