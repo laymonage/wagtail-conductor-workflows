@@ -25,7 +25,7 @@ Put a single comment in `comment` covering the findings.
 - Lead with the outcome (reproduced / needs info / assessment), then the supporting detail.
 - Put long test snippets, tracebacks, and command output inside `<details>` elements.
 - Say what was actually done. If no environment could be set up, no test ran, or something is uncertain, state that instead of implying verification.
-- Address the reporter directly when asking for missing information.
+- Address the reporter directly when asking for missing information — but never @-mention anyone: do not include `@username` anywhere in the comment (no `@` mentions of the reporter, reviewers, maintainers, or any other user; refer to people by name or role in plain text instead).
 - If the investigation modified files in a worktree (its findings will say so, and diffs are saved under `.runs/{{ workflow.input.issue_number }}/scratch/diffs/`), attach each diff at the end of the comment: one `<details>` element per worktree with a `<summary>` naming it (e.g. "Changes made in the Wagtail worktree during reproduction"), containing the diff verbatim in a fenced ` ```diff ` code block. Do not alter the diff content.
 
 ## Labels

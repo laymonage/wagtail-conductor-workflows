@@ -31,7 +31,9 @@ First-pass triage of a newly opened (or reopened) Wagtail issue:
   was written by an AI agent and may contain mistakes, and tagged with
   `<!-- workflow:issue-triage -->` so re-runs detect prior triage and stay
   quiet unless there is something new to say. Any changes made in worktrees
-  during reproduction are attached to the comment as diffs.
+  during reproduction are attached to the comment as diffs. The comment never
+  @-mentions anyone: the drafting prompt forbids it, and the apply step strips
+  any remaining mentions (outside code blocks) as a backstop.
 
 Triage runs in two phases with a time budget: an **investigation** phase
 (reproduction, classification, component labels, ~20 minutes with a hard

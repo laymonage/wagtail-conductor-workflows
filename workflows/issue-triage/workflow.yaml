@@ -231,6 +231,9 @@ agents:
         type: boolean
       comment_posted:
         type: boolean
+      mentions_stripped:
+        type: array
+        description: "Usernames whose @-mentions were stripped from the comment"
       errors:
         type: array
     routes:

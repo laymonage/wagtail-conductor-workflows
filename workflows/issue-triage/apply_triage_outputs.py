@@ -18,6 +18,7 @@ When <output-path> is given, the triage agent's raw JSON decision is also
 written there (for review alongside the reproduction artifacts in scratch/).
 """
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +29,29 @@ ALLOWED_REMOVE = ("status:Unconfirmed", "status:Needs Review")
 MAX_COMPONENT_ADD = 3
 MAX_STATUS_ADD = 1
 MAX_REMOVE = 1
+
+# @-mentions outside code (GitHub does not linkify mentions inside fenced or
+# inline code) are stripped so the comment never notifies anyone.
+SEGMENT_RE = re.compile(r"(```.*?```|`[^`\n]+`)", re.DOTALL)
+MENTION_RE = re.compile(r"(^|\s)@([A-Za-z0-9][A-Za-z0-9-]{0,37})")
+
+
+def strip_mentions(text: str) -> tuple[str, list[str]]:
+    """Remove @-mentions outside code blocks/spans; return (text, names)."""
+    parts = SEGMENT_RE.split(text)
+    stripped: list[str] = []
+    names: list[str] = []
+    for part in parts:
+        if part.startswith("`"):
+            stripped.append(part)
+            continue
+
+        def _repl(m: re.Match) -> str:
+            names.append(m.group(2))
+            return f"{m.group(1)}{m.group(2)}"
+
+        stripped.append(MENTION_RE.sub(_repl, part))
+    return "".join(stripped), names
 
 # Prepended to every posted comment so readers know a machine wrote it.
 DISCLAIMER = (
@@ -145,6 +169,11 @@ def main():
         # AI disclaimer at the top, deduped in case the agent already included it.
         if "automated AI triage agent" not in comment[:300]:
             comment = DISCLAIMER + "\n" + comment.lstrip()
+        # Never mention users: strip @-mentions outside code so the comment
+        # cannot notify anyone.
+        comment, mention_names = strip_mentions(comment)
+        if mention_names:
+            result["mentions_stripped"] = mention_names
         proc = gh(
             "issue", "comment", issue_number, "--repo", repo,
             "--body-file", "-", stdin_text=comment,
