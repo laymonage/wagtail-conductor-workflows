@@ -66,6 +66,14 @@ Read `{{ workflow.dir }}/labels.json` and consider only its `component:` labels.
      - The report is complete but describes behaviour that does not exist on the current checkout (e.g. the cited code path has moved or changed, or the behaviour is documented as intentional) — explain what you found.
 3. **If the bug is expressible as a unit test** in Wagtail's existing suite (Python `TestCase` under `wagtail/**/tests/`, or a Jest test under `client/src/**`), draft a runnable test snippet, match the conventions of the nearest existing test module — same base class, same fixtures, same import style — and confirm it fails on the current checkout (in the scratch-dir worktree, per the `run-tests` skill) before including it in your findings. Say whether you ran it. Point at the responsible `file:line` for a likely fix if you found one.
 
+   **Testing quick reference** — this is the standard command from the `run-tests` skill; use it verbatim (dotted path replaced):
+
+   ```bash
+   DATABASE_NAME=default.sqlite3 ./runtests.py --verbosity=1 --parallel --keepdb --exclude-tag=transaction <dotted.test.path>
+   ```
+
+   `--keepdb` reuses the test DB between runs — **always include it**. If `--keepdb` with `--parallel` breaks on SQLite after a migration, delete the cloned `default_N.sqlite3` files and rerun without `--parallel`. For Jest: `npm run test:unit -- <file>`.
+
 ### Feature/enhancement request or maintenance task
 
 1. Assess whether the request is reasonable on three axes, and cover all three in your findings:
