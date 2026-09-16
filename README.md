@@ -30,7 +30,8 @@ First-pass triage of a newly opened (or reopened) Wagtail issue:
 - Posts **exactly one** comment per triage, prefixed with a disclaimer that it
   was written by an AI agent and may contain mistakes, and tagged with
   `<!-- workflow:issue-triage -->` so re-runs detect prior triage and stay
-  quiet unless there is something new to say.
+  quiet unless there is something new to say. Any changes made in worktrees
+  during reproduction are attached to the comment as diffs.
 
 Triage runs in two phases with a time budget: an **investigation** phase
 (reproduction, classification, component labels, ~20 minutes with a hard
