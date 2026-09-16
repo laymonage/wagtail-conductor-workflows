@@ -94,7 +94,7 @@ agents:
     prompt: !file issue-triage.md
     working_dir: "{{ workflow.input.wagtail_dir }}"
     skills:
-      - ./skills/run-tests
+      - ./skills
     max_agent_iterations: 100
     output:
       action:
