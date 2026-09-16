@@ -6,9 +6,11 @@ workflow:
     Runs locally: fetching and all GitHub writes go through the gh CLI.
   entry_point: prefetch_context
 
+  # No workflow-level timeout: the time_budget_gate pauses for a human, and
+  # wall-clock limits would kill the run while it waits. Per-agent timeouts
+  # bound each step instead.
   limits:
     max_iterations: 20
-    timeout_seconds: 3600
 
   runtime:
     provider:
@@ -18,6 +20,9 @@ workflow:
       base_url: ${CONDUCTOR_WORKFLOW_BASE_URL:-https://api.tensorx.ai/v1}
       api_key: ${CONDUCTOR_WORKFLOW_API_KEY}
     default_model: ${CONDUCTOR_WORKFLOW_MODEL:-z-ai/glm-5.3-flash}
+    checkpoint:
+      every_seconds: 300            # periodic checkpoints so a killed run
+      keep_last: 5                  # resumes near where it died
 
   metadata:
     emoji: 🔍
@@ -44,6 +49,7 @@ agents:
     type: script
     description: "Fetch issue, component labels, similar issues, and prior triage comments"
     command: bash
+    timeout: 300
     args:
       - "-c"
       - |
@@ -80,7 +86,7 @@ agents:
 
         echo "prefetched to $DATA_DIR"
     routes:
-      - to: triage_agent
+      - to: triage_reproduce
         when: "exit_code == 0"
       - to: prefetch_failed
 
@@ -89,13 +95,79 @@ agents:
     status: failed
     reason: "Could not prefetch triage context: {{ prefetch_context.output.stderr }}"
 
-  # --- The triage agent: decides, never writes ---
-  - name: triage_agent
-    prompt: !file issue-triage.md
+  # --- Phase 1: investigation (reproduction, classification, component labels) ---
+  - name: triage_reproduce
+    prompt: !file reproduce.md
     working_dir: "{{ workflow.input.wagtail_dir }}"
     skills:
       - ./skills
+    timeout_seconds: 900
     max_agent_iterations: 100
+    output:
+      status:
+        type: string
+        enum: ["done", "out_of_time", "noop"]
+        description: "done = investigation concluded; out_of_time = budget ran out mid-investigation; noop = nothing to triage"
+      noop_reason:
+        type: string
+        nullable: true
+        description: "Short reason when status is noop, else null"
+      reproduced:
+        type: boolean
+        nullable: true
+        description: "Bug reports only: true if the bug was reproduced, false if not; null otherwise"
+      component_labels:
+        type: array
+        description: "Chosen component:* labels (max 3)"
+      findings:
+        type: string
+        description: "Detailed findings summary for the drafting phase"
+    routes:
+      - to: noop_end
+        when: "status == 'noop'"
+      - to: time_budget_gate
+        when: "status == 'out_of_time'"
+      - to: triage_finalize
+
+  # --- Human gate: only reached when the investigation runs out of time ---
+  - name: time_budget_gate
+    type: human_gate
+    description: "The triage investigation used up its time budget"
+    prompt: |
+      ## Triage time budget reached
+
+      The investigation phase for issue #{{ workflow.input.issue_number }} hit its
+      time budget before reaching a conclusion.
+
+      Its running notes are in
+      `workflows/issue-triage/.runs/{{ workflow.input.issue_number }}/scratch/NOTES.md`.
+
+      How should the triage proceed?
+    options:
+      - label: "Keep going"
+        value: keep_going
+        description: "Give the investigation another time budget and let it continue"
+        route: triage_reproduce
+      - label: "Not reproducible — apply"
+        value: wrap_up_apply
+        description: "Conclude as not reproducible and post the outcome (comment + status:Needs Info swap)"
+        route: triage_finalize
+      - label: "Not reproducible — don't apply"
+        value: wrap_up_no_apply
+        description: "Conclude as not reproducible but post nothing"
+        route: unfinished_end
+
+  - name: unfinished_end
+    type: terminate
+    status: success
+    reason: "Triage investigation timed out; abandoned without applying any outputs."
+
+  # --- Phase 2: draft the outcome from the investigation findings ---
+  - name: triage_finalize
+    prompt: !file finalize.md
+    working_dir: "{{ workflow.input.wagtail_dir }}"
+    timeout_seconds: 600
+    max_agent_iterations: 30
     output:
       action:
         type: string
@@ -112,7 +184,7 @@ agents:
       reproduced:
         type: boolean
         nullable: true
-        description: "Bug reports only: true if you reproduced the bug, false if you did not; null for other issue types"
+        description: "Bug reports only: true if the bug was reproduced, false if not; null for other issue types"
       labels_to_add:
         type: array
         description: "component:* labels (max 3) and optionally status:Needs Community Feedback or status:Needs Info"
@@ -131,19 +203,20 @@ agents:
   - name: noop_end
     type: terminate
     status: success
-    reason: "No triage action taken: {{ triage_agent.output.noop_reason }}"
+    reason: "No triage action taken: {% if triage_finalize is defined %}{{ triage_finalize.output.noop_reason }}{% else %}{{ triage_reproduce.output.noop_reason }}{% endif %}"
 
   # --- Apply outputs: deterministic script enforcing the safe-outputs contract ---
   - name: apply_outputs
     type: script
     description: "Apply labels, body update, and post the single comment via gh CLI"
     command: python3
+    timeout: 300
     args:
       - "{{ workflow.dir }}/apply_triage_outputs.py"
       - "{{ workflow.input.repository }}"
       - "{{ workflow.input.issue_number }}"
       - "{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/scratch/triage-output.json"
-    stdin: "{{ triage_agent.output | tojson }}"
+    stdin: "{{ triage_finalize.output | tojson }}"
     output:
       labels_added:
         type: array
@@ -159,8 +232,8 @@ agents:
       - to: $end
 
 output:
-  action: "{% if triage_agent is defined %}{{ triage_agent.output.action }}{% else %}not_run{% endif %}"
-  noop_reason: "{% if triage_agent is defined %}{{ triage_agent.output.noop_reason }}{% else %}null{% endif %}"
+  action: "{% if triage_finalize is defined %}{{ triage_finalize.output.action }}{% else %}not_run{% endif %}"
+  noop_reason: "{% if triage_finalize is defined %}{{ triage_finalize.output.noop_reason }}{% else %}null{% endif %}"
   labels_added: "{% if apply_outputs is defined %}{{ apply_outputs.output.labels_added }}{% else %}[]{% endif %}"
   labels_removed: "{% if apply_outputs is defined %}{{ apply_outputs.output.labels_removed }}{% else %}[]{% endif %}"
   body_updated: "{% if apply_outputs is defined %}{{ apply_outputs.output.body_updated }}{% else %}false{% endif %}"

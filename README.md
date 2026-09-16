@@ -32,6 +32,14 @@ First-pass triage of a newly opened (or reopened) Wagtail issue:
   `<!-- workflow:issue-triage -->` so re-runs detect prior triage and stay
   quiet unless there is something new to say.
 
+Triage runs in two phases with a time budget: an **investigation** phase
+(reproduction, classification, component labels, ~20 minutes with a hard
+timeout) writes running notes to `.runs/<issue>/scratch/NOTES.md`; if it runs
+out of time, a **human gate** asks whether to keep going, conclude as not
+reproducible and post the outcome, or conclude without posting anything. A
+fast **drafting** phase then turns the findings into the comment, labels, and
+body update, which a deterministic step applies.
+
 The triage agent decides but never writes: labels, body updates, and the
 comment are applied by a deterministic script that enforces allowlists and caps
 for safe outputs.
@@ -44,7 +52,8 @@ README.md
 workflows/
 └── issue-triage/                   # one directory per workflow, assets flat
     ├── workflow.yaml               # workflow definition
-    ├── issue-triage.md             # agent prompt
+    ├── reproduce.md                # phase 1: investigation prompt
+    ├── finalize.md                 # phase 2: outcome-drafting prompt
     ├── apply_triage_outputs.py     # deterministic safe-outputs applier
     ├── skills/run-tests/SKILL.md   # Wagtail test-suite conventions (loaded
                                     #   by the triage agent on demand)
