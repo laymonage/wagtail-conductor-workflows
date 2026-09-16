@@ -42,7 +42,13 @@ Put a single comment in `comment` covering the findings.
 
 ## Issue body
 
-For bug reports, set `issue_body` to the full issue body from `data/issue.json` with the **"Working on this" section** updated — unless the reporter replaced the template text with their own note about wanting to work on it, in that case leave `issue_body` as `null`.
+For bug reports, set `issue_body` to the full issue body from `data/issue.json` with the **"Working on this" section** updated. Three cases:
+
+- The section exists with content (template text or triage notes from a previous run) — update it as described below.
+- The section exists but is **empty** (heading with nothing under it) — update it too: write the triage outcome under the existing heading.
+- The section is **missing entirely** (the reporter deleted it or used no template) — **add it**: append a `### Working on this` heading at the end of the body with the triage outcome under it, and preserve everything already in the body byte-for-byte.
+
+In all cases, if the reporter replaced the template text with their own note about wanting to work on the issue, leave `issue_body` as `null`.
 
 - Preserve the entire rest of the body byte-for-byte. Only replace the content under the `### Working on this` heading.
 - Reproduced: state that triage confirmed it on <fresh project | bakerydemo>, the estimated severity and effort, and that anyone can pick it up per the contributing guidelines.
