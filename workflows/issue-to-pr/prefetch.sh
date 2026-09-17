@@ -58,6 +58,18 @@ if [ "$pr_template_found" = false ]; then
   echo "" > "$DATA_DIR/pr_template.md"
 fi
 
+# --- Label snapshot ----------------------------------------------------------
+# The PR gets component:*/type:* labels chosen from the same snapshot the
+# issue-triage workflow uses; reuse it if present, else fetch a fresh one.
+if [ ! -s "$DATA_DIR/labels.json" ]; then
+  if [ -s "$WF_DIR/../issue-triage/labels.json" ]; then
+    cp "$WF_DIR/../issue-triage/labels.json" "$DATA_DIR/labels.json"
+  else
+    gh label list --repo "$REPO" --json name,color,description --limit 400 \
+      > "$DATA_DIR/labels.json"
+  fi
+fi
+
 # --- Reuse prior issue-triage run artifacts ---------------------------------
 prior_run=false
 reused_worktree=""

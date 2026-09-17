@@ -71,8 +71,10 @@ dir), on a `fix/issue-<n>` / `feature/issue-<n>` / `docs/issue-<n>` branch
   the drafting agent with feedback, or abandon without opening anything.
 - PR creation is deterministic and always `--draft`: a Python step validates
   the body against the template snapshot (all section headers present) and the
-  issue link, strips mentions, and creates the PR via `gh`. The agent can never
-  open a non-draft PR or skip the template.
+  issue link, strips mentions, applies `component:*` / `type:*` labels chosen
+  by the drafting agent (from the same label snapshot issue-triage uses, plus
+  `status:Needs Review` unconditionally), and creates the PR via `gh`. The
+  agent can never open a non-draft PR or skip the template.
 
 Like `issue-triage`, implementation runs on a time budget (~45 minutes with a
 hard timeout): when it runs out, a human gate offers keep-going / open a draft

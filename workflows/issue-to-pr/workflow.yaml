@@ -195,6 +195,9 @@ agents:
         type: string
         nullable: true
         description: "The branch to merge into, else null (defaults to workflow input)"
+      labels_to_add:
+        type: array
+        description: "component:* (max 3) and exactly one type:* label to apply to the PR; status:* labels are applied by the apply step"
     routes:
       - to: noop_end
         when: "action == 'noop'"
@@ -277,6 +280,8 @@ output:
   pr_url: "{% if create_pr is defined %}{{ create_pr.output.pr_url }}{% else %}null{% endif %}"
   pr_number: "{% if create_pr is defined %}{{ create_pr.output.pr_number }}{% else %}null{% endif %}"
   draft: "{% if create_pr is defined %}{{ create_pr.output.draft }}{% else %}false{% endif %}"
+  labels_added: "{% if create_pr is defined %}{{ create_pr.output.labels_added }}{% else %}[]{% endif %}"
+  labels_dropped: "{% if create_pr is defined %}{{ create_pr.output.labels_dropped }}{% else %}[]{% endif %}"
   branch: "{% if implement_fix is defined %}{{ implement_fix.output.branch }}{% else %}null{% endif %}"
   reused_worktree: "{% if prefetch_context is defined %}{{ prefetch_context.output.reused_worktree }}{% else %}null{% endif %}"
   reused_venv: "{% if prefetch_context is defined %}{{ prefetch_context.output.reused_venv }}{% else %}null{% endif %}"

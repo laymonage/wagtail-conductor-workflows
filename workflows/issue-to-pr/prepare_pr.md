@@ -29,6 +29,11 @@ Apply the feedback to your previous draft (it is in your context as your earlier
    Summarise what the agent did (implementation, tests) rather than leaving it at "None".
 5. **No @-mentions** of anyone, anywhere in the title or body.
 6. `head_branch` must be exactly the branch the implementation agent pushed; `base_branch` defaults to `{{ workflow.input.base_branch }}` — only change it if the diff clearly targets another base.
+7. **Labels** — choose what the PR should be labelled with, returned in `labels_to_add`:
+   - Up to **3 `component:*` labels** (most specific first), chosen with the same care as issue triage: start from the issue's existing component labels, but verify against what the change actually touches and adjust if needed. Only propose labels that exist in the snapshot at `{{ prefetch_context.output.run_dir }}/data/labels.json`.
+   - Exactly **one `type:*` label** (`type:Bug`, `type:Enhancement`, or `type:Cleanup/Optimisation`) — normally the issue's own type label, since the PR implements that issue.
+   - Do **not** include `status:*` labels: the apply step adds `status:Needs Review` automatically when creating the PR.
+   - Fewer labels is better than wrong labels — return an empty list rather than guess.
 
 ## Output contract
 
@@ -38,3 +43,4 @@ Apply the feedback to your previous draft (it is in your context as your earlier
 - `body` — the complete PR body following the template.
 - `head_branch` — the branch to open the PR from.
 - `base_branch` — the branch to merge into.
+- `labels_to_add` — array of `component:*` (max 3) and exactly one `type:*` label to apply to the PR; empty if none apply with confidence.

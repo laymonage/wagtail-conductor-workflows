@@ -35,6 +35,14 @@ HEADER_RE = re.compile(r"^#{1,6}\s+\S")
 CHANGELOG_PREFIXES = ("docs/releases/",)
 CHANGELOG_FILES = ("changelog.txt",)
 
+# PR label contract: the drafting agent picks component:*/type:* labels
+# (filtered and capped here); status:Needs Review is workflow policy and is
+# always added by this step, never chosen by the agent.
+ALLOWED_ADD_PREFIXES = ("component:", "type:")
+MAX_COMPONENT = 3
+MAX_TYPE = 1
+AUTO_STATUS_LABEL = "status:Needs Review"
+
 # @-mentions outside code (GitHub does not linkify mentions inside fenced or
 # inline code) are stripped so the PR body cannot notify anyone.
 SEGMENT_RE = re.compile(r"(```.*?```|`[^`\n]+`)", re.DOTALL)
@@ -117,6 +125,8 @@ def main():
         "pr_url": None,
         "pr_number": None,
         "draft": True,
+        "labels_added": [],
+        "labels_dropped": [],
         "mentions_stripped": [],
         "errors": [],
     }
@@ -206,6 +216,41 @@ def main():
         fh.write(body)
         body_file = fh.name
 
+    # --- compute PR labels (allowlist + caps + snapshot check) -------------
+    snapshot = Path(data_dir) / "labels.json"
+    known: set[str] | None = None
+    if snapshot.exists() and snapshot.stat().st_size > 0:
+        try:
+            known = {
+                l.get("name")
+                for l in json.loads(snapshot.read_text(encoding="utf-8"))
+                if isinstance(l, dict) and isinstance(l.get("name"), str)
+            }
+        except (json.JSONDecodeError, OSError):
+            result["errors"].append("warning: unreadable labels.json; snapshot check skipped")
+
+    raw_labels = [
+        l for l in (data.get("labels_to_add") or []) if isinstance(l, str)
+    ]
+    labels: list[str] = []
+    for label in dict.fromkeys(raw_labels):
+        if not label.startswith(ALLOWED_ADD_PREFIXES):
+            result["labels_dropped"].append(label)
+        elif known is not None and label not in known:
+            result["labels_dropped"].append(label)
+            result["errors"].append(f"label not in repo snapshot, dropped: {label}")
+        else:
+            labels.append(label)
+    components = [l for l in labels if l.startswith("component:")][:MAX_COMPONENT]
+    types = [l for l in labels if l.startswith("type:")][:MAX_TYPE]
+    dropped = len(labels) - len(components) - len(types)
+    if dropped:
+        result["errors"].append(f"dropped {dropped} label(s) over the allowlist caps")
+    result["labels_dropped"].extend(
+        l for l in labels if l not in components and l not in types
+    )
+    labels = components + types + [AUTO_STATUS_LABEL]
+
     proc = gh(
         "pr", "create",
         "--repo", repo,
@@ -222,6 +267,17 @@ def main():
     m = re.search(r"/pull/(\d+)", url)
     result["pr_url"] = url or None
     result["pr_number"] = int(m.group(1)) if m else None
+
+    # --- apply labels (PR already exists; failures are recorded, not fatal) --
+    if labels:
+        args = ["pr", "edit", str(result["pr_number"] or url), "--repo", repo]
+        for label in labels:
+            args += ["--add-label", label]
+        proc = gh(*args)
+        if proc.returncode == 0:
+            result["labels_added"] = labels
+        else:
+            result["errors"].append(f"add-labels failed: {proc.stderr.strip()}")
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     Path(out_path).write_text(json.dumps(result, indent=2) + "\n")
