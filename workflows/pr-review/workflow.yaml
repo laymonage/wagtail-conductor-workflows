@@ -1,0 +1,207 @@
+workflow:
+  name: wagtail_pr_review
+  description: >
+    Review a Wagtail pull request: assess the diff for correctness, run the
+    relevant tests, and verify behaviour. Produces a verdict plus overall and
+    inline line comments, shown to a human for sign-off before anything is
+    submitted. Runs locally: fetching and all GitHub writes go through the gh
+    CLI.
+  entry_point: prefetch_context
+
+  # No workflow-level timeout: the sign-off gate pauses for a human, and
+  # wall-clock limits would kill the run while it waits. Per-agent timeouts
+  # bound each step instead.
+  limits:
+    max_iterations: 20
+
+  runtime:
+    provider:
+      name: copilot                 # custom routing goes through the Copilot SDK
+      type: openai                  # openai | azure | anthropic
+      wire_api: completions         # completions | responses
+      base_url: ${CONDUCTOR_WORKFLOW_BASE_URL:-https://api.tensorx.ai/v1}
+      api_key: ${CONDUCTOR_WORKFLOW_API_KEY}
+    default_model: ${CONDUCTOR_WORKFLOW_MODEL:-z-ai/glm-5.3-flash}
+    checkpoint:
+      every_seconds: 300            # periodic checkpoints so a killed run
+      keep_last: 5                  # resumes near where it died
+
+  metadata:
+    emoji: 📋
+
+  input:
+    pr_number:
+      type: string
+      required: true
+      description: "The GitHub pull request number to review"
+    repository:
+      type: string
+      required: false
+      default: "wagtail/wagtail"
+      description: "GitHub repository (owner/name) containing the pull request"
+    wagtail_dir:
+      type: string
+      required: false
+      default: "../../../wagtail"
+      description: "Path to a local Wagtail checkout the PR worktree is created from (relative paths resolve against the workflow's directory)"
+
+agents:
+  # --- Prefetch: PR metadata, changed files, prior reviews, PR worktree -------
+  - name: prefetch_context
+    type: script
+    description: "Fetch PR state, files, prior reviews; check the PR out into a worktree"
+    command: bash
+    timeout: 300
+    args:
+      - "{{ workflow.dir }}/prefetch.sh"
+      - "{{ workflow.input.pr_number }}"
+      - "{{ workflow.input.repository }}"
+      - "{{ workflow.input.wagtail_dir }}"
+      - "{{ workflow.dir }}"
+    routes:
+      - to: pr_not_open
+        when: "pr_state != 'OPEN'"
+      - to: review
+        when: "exit_code == 0"
+      - to: prefetch_failed
+
+  - name: prefetch_failed
+    type: terminate
+    status: failed
+    reason: "Could not prefetch review context: {{ prefetch_context.output.stderr }}"
+
+  - name: pr_not_open
+    type: terminate
+    status: success
+    reason: "PR #{{ workflow.input.pr_number }} is {{ prefetch_context.output.pr_state }}; nothing to review."
+
+  # --- Review the PR -----------------------------------------------------------
+  - name: review
+    prompt: !file review.md
+    working_dir: "{{ prefetch_context.output.worktree }}"
+    skills:
+      - ../../skills
+    timeout_seconds: 2700
+    max_agent_iterations: 150
+    output:
+      status:
+        type: string
+        enum: ["done", "out_of_time", "noop"]
+        description: "done = review concluded; out_of_time = budget ran out mid-review (partial review, gate shows it as incomplete); noop = nothing reviewable"
+      noop_reason:
+        type: string
+        nullable: true
+        description: "Short reason when status is noop, else null"
+      verdict:
+        type: string
+        enum: ["approve", "request_changes", "comment"]
+        nullable: true
+        description: "The review verdict; required when status is done"
+      summary:
+        type: string
+        description: "What the change does, correctness verdict, test results, and concerns with file:line references"
+      overall_comment:
+        type: string
+        nullable: true
+        description: "The review body as it will be submitted, else null"
+      comments_digest:
+        type: array
+        description: "One short 'path:line — what it says' string per inline comment, for the sign-off gate"
+    routes:
+      - to: noop_end
+        when: "status == 'noop'"
+      - to: signoff_gate
+
+  # --- Human gate: sign off before anything is submitted -----------------------
+  # Nothing has been written to GitHub; the reviewer sees the verdict, the
+  # summary, and every inline comment that will be posted.
+  - name: signoff_gate
+    type: human_gate
+    description: "Sign off on the review before it is submitted"
+    prompt: |
+      ## Review ready for sign-off — PR #{{ workflow.input.pr_number }}
+
+      {% if review.output.status == 'out_of_time' %}**⚠ The review ran out of
+      time — findings are partial.** Running notes:
+      `workflows/pr-review/.runs/{{ workflow.input.pr_number }}/scratch/NOTES.md`.
+
+      {% endif %}**PR:** "{{ prefetch_context.output.pr_title }}" by
+      {{ prefetch_context.output.pr_author }} —
+      `{{ prefetch_context.output.head_ref }}` →
+      `{{ prefetch_context.output.base_ref }}` ({{ prefetch_context.output.n_changed_files }} changed files)
+
+      **Recommendation: {{ review.output.verdict }}** — the review will be
+      submitted as a **COMMENT review** (never APPROVE/REQUEST_CHANGES; formal
+      verdicts are left to humans).
+
+      ### Summary
+
+      {{ review.output.summary }}
+
+      ### Overall comment
+
+      {{ review.output.overall_comment or "_(none)_" }}
+
+      ### Inline comments ({{ review.output.comments_digest | length }})
+
+      {% for c in review.output.comments_digest %}
+      - {{ c }}
+      {% endfor %}
+
+      Full comment bodies: `workflows/pr-review/.runs/{{ workflow.input.pr_number }}/scratch/review-output.json`.
+    options:
+      - label: "Submit review"
+        value: submit
+        description: "Post the review to GitHub exactly as shown"
+        route: submit_review
+      - label: "Revise"
+        value: revise
+        description: "Send the review back to the reviewer agent with feedback"
+        route: review
+        prompt_for: feedback
+      - label: "Abandon"
+        value: abandon
+        description: "Discard the review without submitting anything"
+        route: abandoned_end
+
+  - name: abandoned_end
+    type: terminate
+    status: success
+    reason: "Review signed off as abandoned; nothing was submitted."
+
+  - name: noop_end
+    type: terminate
+    status: success
+    reason: "No review submitted: {{ review.output.noop_reason }}"
+
+  # --- Submit: deterministic script enforcing the verdict/contract ------------
+  - name: submit_review
+    type: script
+    description: "Validate the review payload and submit it via gh api"
+    command: python3
+    timeout: 300
+    args:
+      - "{{ workflow.dir }}/submit_review.py"
+      - "{{ workflow.input.repository }}"
+      - "{{ workflow.input.pr_number }}"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr_number }}/data"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr_number }}/scratch/review-output.json"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr_number }}/scratch/review-result.json"
+    stdin: "{{ review.output | tojson }}"
+    routes:
+      - to: $end
+        when: "exit_code == 0"
+      - to: review_failed
+
+  - name: review_failed
+    type: terminate
+    status: failed
+    reason: "Review submission failed: {{ submit_review.output.errors | default(submit_review.output.stderr) | join('; ') }}"
+
+output:
+  review_url: "{% if submit_review is defined %}{{ submit_review.output.review_url }}{% else %}null{% endif %}"
+  event: "{% if submit_review is defined %}{{ submit_review.output.event }}{% else %}null{% endif %}"
+  verdict: "{% if review is defined %}{{ review.output.verdict }}{% else %}null{% endif %}"
+  comments_submitted: "{% if submit_review is defined %}{{ submit_review.output.comments_submitted }}{% else %}0{% endif %}"
+  comments_dropped: "{% if submit_review is defined %}{{ submit_review.output.comments_dropped }}{% else %}[]{% endif %}"
+  errors: "{% if submit_review is defined %}{{ submit_review.output.errors }}{% else %}['workflow did not reach the submit step']{% endif %}"

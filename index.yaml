@@ -13,3 +13,10 @@ workflows:
       environments from prior issue-triage runs of the same issue when
       available, and fills in the repo's PR template.
     path: workflows/issue-to-pr/workflow.yaml
+  pr-review:
+    description: >
+      Review a Wagtail pull request: assess the diff, run the relevant tests,
+      and verify behaviour. Produces a verdict recommendation plus overall and
+      inline line comments, shown to a human for sign-off. Always submitted as
+      a COMMENT review — approve/request-changes are left to humans.
+    path: workflows/pr-review/workflow.yaml

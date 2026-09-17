@@ -114,6 +114,12 @@ workflows/
     ├── implement.md                # phase 1: implementation prompt
     ├── prepare_pr.md               # phase 2: PR-drafting prompt
     └── create_pr.py                # deterministic draft-PR applier
+└── pr-review/                      # one directory per workflow, assets flat
+    ├── workflow.yaml               # workflow definition
+    ├── prefetch.sh                 # prefetch: PR state, files, prior reviews,
+                                    #   PR worktree checkout
+    ├── review.md                   # review prompt
+    └── submit_review.py            # deterministic review applier
 ```
 
 Per-run artifacts are kept (not cleaned up) for review, git-ignored:
@@ -132,6 +138,31 @@ environments are shared rather than duplicated — don't delete the originals.
 
 Both workflows share the repo-root `skills/` and `data/labels.json` via
 relative paths, so shared knowledge and snapshots stay in one place.
+
+### `pr-review`
+
+Reviews a Wagtail pull request:
+
+- **Prefetch** fetches the PR metadata, changed files, and any existing
+  reviews, then checks the PR out into a git worktree of your local checkout
+  (`gh pr checkout --worktree`) and records the base SHA so the reviewer can
+  `git diff <base>...HEAD`.
+- The **reviewer agent** assesses the diff for correctness, runs the tests
+  covering the changed code (shared `run-tests` skill), and verifies
+  user-facing behaviour when tests don't cover it. Changelog/release-note
+  entries are explicitly **not** a review gap — maintainers add them at merge
+  time.
+- It produces a verdict **recommendation** (`approve` / `request_changes` /
+  `comment`), an overall comment, and inline line comments validated against
+  the PR's changed files.
+- A **sign-off gate** shows the verdict, summary, and every inline comment
+  before anything is submitted: submit / revise with feedback / abandon. If
+  the review ran out of time, the gate shows the partial findings marked as
+  such.
+- Submission is deterministic: the payload verdict must match what was signed
+  off, mentions are stripped, and the review is **always submitted as a
+  COMMENT review** — APPROVE / REQUEST_CHANGES are formal merge-gate verdicts
+  reserved for humans.
 
 ## Requirements
 
@@ -159,6 +190,7 @@ Run it:
 ```bash
 conductor run issue-triage@wagtail --input issue_number=1234
 conductor run issue-to-pr@wagtail --input issue_number=1234
+conductor run pr-review@wagtail --input pr_number=5678
 ```
 
 Optional inputs for `issue-triage`: `repository` (default `wagtail/wagtail`),
@@ -171,6 +203,10 @@ Optional inputs for `issue-to-pr`: `repository` (default `wagtail/wagtail`),
 `wagtail_dir` (default `../../../wagtail` — the checkout the PR branch is cut
 from), `base_branch` (default `main`) and `triage_runs_dir` (default
 `../issue-triage/.runs` — scanned for prior work on the issue to reuse).
+
+Optional inputs for `pr-review`: `repository` (default `wagtail/wagtail`) and
+`wagtail_dir` (default `../../../wagtail` — the checkout the PR worktree is
+created from).
 
 You can also run the YAML directly:
 
@@ -204,3 +240,6 @@ run's data directory automatically.)
   **draft**, always from your own account, never closing or editing issues.
   The PR body is validated against the repo's PR template and stripped of
   @-mentions before creation.
+- `pr-review` never approves or requests changes: its reviews are always
+  submitted as **COMMENT** reviews, only after the sign-off gate, from your
+  own account, with @-mentions stripped.
