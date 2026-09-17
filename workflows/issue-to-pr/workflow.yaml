@@ -93,7 +93,7 @@ agents:
     prompt: !file implement.md
     working_dir: "{{ resolve_env.output.worktree }}"
     skills:
-      - ../issue-triage/skills
+      - ../../skills
     timeout_seconds: 3600
     max_agent_iterations: 300
     output:

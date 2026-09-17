@@ -14,18 +14,26 @@ WF_DIR="$3"
 
 DATA_DIR="$WF_DIR/.runs/$ISSUE_NUMBER/data"
 mkdir -p "$DATA_DIR"
+# Repo root holds shared assets: data/labels.json (label snapshot) and the
+# run-tests skill.
+REPO_ROOT="$WF_DIR/../.."
 
 gh api "repos/$REPO/issues/$ISSUE_NUMBER" \
   --jq '{number, title, body, author: .user.login, author_association, labels: [.labels[].name]}' \
   > "$DATA_DIR/issue.json"
 
-# Component labels are filtered by the agent from the local snapshot
-# in labels.json; regenerate the snapshot only if missing.
-LABELS_FILE="$WF_DIR/labels.json"
-if [ ! -f "$LABELS_FILE" ]; then
-  echo "labels.json not found — fetching labels from GitHub"
-  gh label list --repo "$REPO" --json name,color,description --limit 400 \
-    > "$LABELS_FILE"
+# Component labels are filtered by the agent from the label snapshot; the
+# shared snapshot lives at the repo root (data/labels.json) — copy it into the
+# run's data dir, or fetch a fresh one if the snapshot is missing.
+LABELS_FILE="$DATA_DIR/labels.json"
+if [ ! -s "$LABELS_FILE" ]; then
+  if [ -s "$REPO_ROOT/data/labels.json" ]; then
+    cp "$REPO_ROOT/data/labels.json" "$LABELS_FILE"
+  else
+    echo "data/labels.json not found — fetching labels from GitHub"
+    gh label list --repo "$REPO" --json name,color,description --limit 400 \
+      > "$LABELS_FILE"
+  fi
 fi
 
 gh issue list --repo "$REPO" --state all --limit 30 \

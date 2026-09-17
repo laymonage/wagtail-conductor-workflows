@@ -60,10 +60,11 @@ fi
 
 # --- Label snapshot ----------------------------------------------------------
 # The PR gets component:*/type:* labels chosen from the same snapshot the
-# issue-triage workflow uses; reuse it if present, else fetch a fresh one.
+# issue-triage workflow uses — the shared one at the repo root — copied into
+# the run's data dir, or fetched fresh if the snapshot is missing.
 if [ ! -s "$DATA_DIR/labels.json" ]; then
-  if [ -s "$WF_DIR/../issue-triage/labels.json" ]; then
-    cp "$WF_DIR/../issue-triage/labels.json" "$DATA_DIR/labels.json"
+  if [ -s "$WF_DIR/../../data/labels.json" ]; then
+    cp "$WF_DIR/../../data/labels.json" "$DATA_DIR/labels.json"
   else
     gh label list --repo "$REPO" --json name,color,description --limit 400 \
       > "$DATA_DIR/labels.json"

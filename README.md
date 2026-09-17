@@ -91,6 +91,14 @@ same decide/apply split as `issue-triage`.
 ```
 index.yaml                          # registry index
 README.md
+data/
+└── labels.json                     # shared label snapshot (component/type
+                                    #   labels are filtered from this, not
+                                    #   fetched; copied into each run's data/)
+skills/
+└── run-tests/SKILL.md              # Wagtail test-suite conventions (loaded
+                                    #   by agents on demand; shared by all
+                                    #   workflows that run tests)
 workflows/
 ├── issue-triage/                   # one directory per workflow, assets flat
     ├── workflow.yaml               # workflow definition
@@ -98,12 +106,7 @@ workflows/
                                     #   similar issues, comment history
     ├── reproduce.md                # phase 1: investigation prompt
     ├── finalize.md                 # phase 2: outcome-drafting prompt
-    ├── apply_triage_outputs.py     # deterministic safe-outputs applier
-    ├── skills/run-tests/SKILL.md   # Wagtail test-suite conventions (loaded
-                                    #   by the triage agent on demand; shared
-                                    #   with issue-to-pr)
-    └── labels.json                 # label snapshot (component labels are
-                                    #   filtered from this, not fetched)
+    └── apply_triage_outputs.py     # deterministic safe-outputs applier
 └── issue-to-pr/                    # one directory per workflow, assets flat
     ├── workflow.yaml               # workflow definition
     ├── prefetch.sh                 # prefetch: issue state, PR template,
@@ -117,7 +120,8 @@ Per-run artifacts are kept (not cleaned up) for review, git-ignored:
 
 ```
 workflows/<workflow>/.runs/<issue>/
-├── data/       # prefetched issue, comments, similar issues / PR template
+├── data/       # prefetched issue, comments, similar issues / PR template,
+                #   and a copy of the shared label snapshot (labels.json)
 └── scratch/    # work environment: git worktree of the Wagtail checkout, venv,
                 #   notes, diffs, and the step's decision output
 ```
@@ -126,8 +130,8 @@ When `issue-to-pr` reuses an `issue-triage` run, the worktree and venv are
 symlinked into its own `.runs/<issue>/scratch/` (`wt` and `venv`), so the
 environments are shared rather than duplicated — don't delete the originals.
 
-The issue-to-pr workflow reuses issue-triage's `skills/run-tests` skill by
-relative path (`../issue-triage/skills`), so it stays in sync automatically.
+Both workflows share the repo-root `skills/` and `data/labels.json` via
+relative paths, so shared knowledge and snapshots stay in one place.
 
 ## Requirements
 
@@ -176,15 +180,16 @@ conductor run workflows/issue-triage/workflow.yaml --input issue_number=1234
 
 ### Refreshing the label snapshot
 
-Component labels come from `workflows/issue-triage/labels.json`. Regenerate it when
+Component labels come from the shared snapshot `data/labels.json`. Regenerate it when
 Wagtail's labels change:
 
 ```bash
 gh label list --repo wagtail/wagtail --json name,color,description --limit 400 \
-  > workflows/issue-triage/labels.json
+  > data/labels.json
 ```
 
-(If the snapshot is missing, the prefetch step regenerates it automatically.)
+(If the snapshot is missing, the prefetch steps fetch a fresh one into the
+run's data directory automatically.)
 
 ## Safety notes
 
