@@ -68,7 +68,8 @@ Record the final branch name in your output.
 ## Step 3 — Implement
 
 - Keep the change **minimal and focused** on the issue; do not drive-by refactor.
-- Follow the conventions of the surrounding code and the repo's `.github/CONTRIBUTING.md` in the worktree — including user-facing change documentation (`docs/release_notes.md` gets an entry under the appropriate section) and doc updates where behaviour is documented.
+- Follow the conventions of the surrounding code and the repo's `.github/CONTRIBUTING.md` in the worktree — with one deliberate exception: **do not update the changelog** — neither the per-version release notes (`docs/releases/<version>.md`) nor the root `CHANGELOG.txt` — even though the contributing guide describes them. Per `docs/contributing/committing.md`, release notes and changelog entries are written by maintainers when they commit/merge a PR; a draft entry on the PR branch would only create merge conflicts. The PR body's description is the changelog input — make sure it summarises the user-facing change well so maintainers can write the entry from it.
+- Documentation changes that are part of the fix itself (e.g. correcting a doc page the bug invalidates) are fine and encouraged; the exception covers only the changelog and release notes.
 - For a feature/enhancement that would require an RFC-scale design decision (new settings surface, breaking change, large architecture change), do **not** improvise the design: return `status: noop` with `noop_reason` explaining that the issue needs an RFC and what the design questions are.
 - Bug reports: if the triage context contains a failing-test scaffold, start from it; otherwise write the regression test first, confirm it fails, then fix.
 

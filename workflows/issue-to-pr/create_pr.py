@@ -27,6 +27,14 @@ from pathlib import Path
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/\-]+$")
 HEADER_RE = re.compile(r"^#{1,6}\s+\S")
 
+# Changelog entries are written by maintainers when they merge the PR, never
+# in the PR branch itself (a draft entry would only cause merge conflicts).
+# In Wagtail these are the per-version release notes under docs/releases/ and
+# the root CHANGELOG.txt (see docs/contributing/committing.md). Enforced
+# deterministically against the actual diff, not just by prompt.
+CHANGELOG_PREFIXES = ("docs/releases/",)
+CHANGELOG_FILES = ("changelog.txt",)
+
 # @-mentions outside code (GitHub does not linkify mentions inside fenced or
 # inline code) are stripped so the PR body cannot notify anyone.
 SEGMENT_RE = re.compile(r"(```.*?```|`[^`\n]+`)", re.DOTALL)
@@ -79,6 +87,18 @@ def fork_owner_from_remote(worktree: str, repo: str) -> str | None:
     if f"{owner}/{name}".lower() == repo.lower():
         return None
     return owner
+
+
+def changed_files(worktree: str, base_branch: str) -> set[str] | None:
+    """Files changed on the PR branch relative to the base branch, or None if
+    the worktree/diff cannot be inspected."""
+    if not worktree:
+        return None
+    for base in (base_branch, f"origin/{base_branch}"):
+        proc = git(worktree, "diff", "--name-only", f"{base}...HEAD")
+        if proc.returncode == 0 and proc.stdout.strip():
+            return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+    return None
 
 
 def main():
@@ -140,6 +160,28 @@ def main():
             )
     else:
         result["errors"].append("warning: no PR template snapshot; header check skipped")
+
+    # Changelog backstop: no changelog/release-notes file may be modified on
+    # the PR branch — maintainers write those entries at merge time.
+    files = changed_files(worktree, base_branch)
+    if files is not None:
+        touched = [
+            f for f in files
+            if f.lower() in CHANGELOG_FILES
+            or any(f.lower().startswith(p) for p in CHANGELOG_PREFIXES)
+        ]
+        if touched:
+            fail(
+                "validation failed: PR branch modifies changelog file(s) "
+                f"{touched} — release-notes and CHANGELOG.txt entries are "
+                "written by maintainers when merging; remove the change and "
+                "cover it in the PR description instead"
+            )
+    elif files is None and worktree:
+        result["errors"].append(
+            "warning: could not diff the worktree against the base; "
+            "changelog check skipped"
+        )
 
     # Never mention users: strip @-mentions outside code so the PR cannot
     # notify anyone.
