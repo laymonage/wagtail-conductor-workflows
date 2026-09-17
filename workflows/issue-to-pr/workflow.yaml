@@ -1,0 +1,283 @@
+workflow:
+  name: wagtail_issue_to_pr
+  description: >
+    Implement a fix or enhancement for a Wagtail issue and open a draft pull
+    request from the user's fork. Reuses reproduction environments (git
+    worktree, venv) from prior issue-triage runs of the same issue when they
+    exist; respects the repo's PR template. Runs locally: fetching and all
+    GitHub writes go through the gh CLI.
+  entry_point: prefetch_context
+
+  # No workflow-level timeout: the time_budget_gate pauses for a human, and
+  # wall-clock limits would kill the run while it waits. Per-agent timeouts
+  # bound each step instead.
+  limits:
+    max_iterations: 30
+
+  runtime:
+    provider:
+      name: copilot                 # custom routing goes through the Copilot SDK
+      type: openai                  # openai | azure | anthropic
+      wire_api: completions         # completions | responses
+      base_url: ${CONDUCTOR_WORKFLOW_BASE_URL:-https://api.tensorx.ai/v1}
+      api_key: ${CONDUCTOR_WORKFLOW_API_KEY}
+    default_model: ${CONDUCTOR_WORKFLOW_MODEL:-z-ai/glm-5.3-flash}
+    checkpoint:
+      every_seconds: 300            # periodic checkpoints so a killed run
+      keep_last: 5                  # resumes near where it died
+
+  metadata:
+    emoji: 🌿
+
+  input:
+    issue_number:
+      type: string
+      required: true
+      description: "The GitHub issue number to implement and open a PR for"
+    repository:
+      type: string
+      required: false
+      default: "wagtail/wagtail"
+      description: "GitHub repository (owner/name) containing the issue"
+    wagtail_dir:
+      type: string
+      required: false
+      default: "../../../wagtail"
+      description: "Path to a local Wagtail checkout used as the base for the PR branch (relative paths resolve against the workflow's directory)"
+    base_branch:
+      type: string
+      required: false
+      default: "main"
+      description: "Branch of the repository the PR targets"
+    triage_runs_dir:
+      type: string
+      required: false
+      default: "../issue-triage/.runs"
+      description: "Path to the issue-triage workflow's .runs directory, scanned for prior work on this issue to reuse (relative paths resolve against the workflow's directory)"
+
+agents:
+  # --- Prefetch: issue, comments, PR template, open-PR guard, triage reuse ---
+  - name: prefetch_context
+    type: script
+    description: "Fetch issue state, PR template, open PRs; reuse prior triage artifacts"
+    command: bash
+    timeout: 300
+    args:
+      - "{{ workflow.dir }}/prefetch.sh"
+      - "{{ workflow.input.issue_number }}"
+      - "{{ workflow.input.repository }}"
+      - "{{ workflow.input.triage_runs_dir }}"
+      - "{{ workflow.dir }}"
+    routes:
+      - to: resolve_env
+        when: "exit_code == 0"
+      - to: prefetch_failed
+
+  - name: prefetch_failed
+    type: terminate
+    status: failed
+    reason: "Could not prefetch PR context: {{ prefetch_context.output.stderr }}"
+
+  # --- Resolve the implementation working directory ---------------------------
+  # Reused triage worktree if there is one, otherwise the pristine checkout
+  # (the implementation agent creates its own worktree inside that case).
+  - name: resolve_env
+    type: set
+    values:
+      worktree: "{{ prefetch_context.output.reused_worktree or workflow.input.wagtail_dir }}"
+    routes:
+      - to: implement_fix
+
+  # --- Phase 1: implement the fix on a branch, run tests, push to the fork ---
+  - name: implement_fix
+    prompt: !file implement.md
+    working_dir: "{{ resolve_env.output.worktree }}"
+    skills:
+      - ../issue-triage/skills
+    timeout_seconds: 3600
+    max_agent_iterations: 300
+    output:
+      status:
+        type: string
+        enum: ["done", "out_of_time", "noop"]
+        description: "done = implementation pushed to a branch; out_of_time = budget ran out mid-implementation; noop = nothing to implement"
+      noop_reason:
+        type: string
+        nullable: true
+        description: "Short reason when status is noop, else null"
+      worktree_used:
+        type: string
+        description: "Absolute path of the git worktree the implementation worked in"
+      branch:
+        type: string
+        nullable: true
+        description: "Branch pushed to the fork, else null"
+      fork_owner:
+        type: string
+        nullable: true
+        description: "GitHub account owning the remote the branch was pushed to, else null"
+      pushed:
+        type: boolean
+        description: "Whether the branch was successfully pushed to the fork"
+      tests:
+        type: string
+        nullable: true
+        description: "Which tests were run and whether they passed"
+      summary:
+        type: string
+        description: "Detailed account of the implementation for the PR-drafting phase"
+    routes:
+      - to: noop_end
+        when: "status == 'noop'"
+      - to: time_budget_gate
+        when: "status == 'out_of_time'"
+      - to: prepare_pr
+
+  # --- Human gate: only reached when the implementation runs out of time ------
+  - name: time_budget_gate
+    type: human_gate
+    description: "The implementation used up its time budget"
+    prompt: |
+      ## Implementation time budget reached
+
+      The implementation phase for issue #{{ workflow.input.issue_number }} hit its
+      time budget before finishing. Its running notes are in
+      `workflows/issue-to-pr/.runs/{{ workflow.input.issue_number }}/scratch/NOTES.md`.
+
+      How should the workflow proceed?
+    options:
+      - label: "Keep going"
+        value: keep_going
+        description: "Give the implementation another time budget and let it continue"
+        route: implement_fix
+      - label: "Open draft PR with current work"
+        value: open_draft_now
+        description: "Draft the PR from whatever is on the branch so far (may be incomplete)"
+        route: prepare_pr
+      - label: "Abandon"
+        value: abandon
+        description: "Stop here without opening a PR"
+        route: unfinished_end
+
+  - name: unfinished_end
+    type: terminate
+    status: success
+    reason: "Implementation timed out; abandoned without opening a PR."
+
+  # --- Phase 2: draft the PR title and body from the implementation -----------
+  - name: prepare_pr
+    prompt: !file prepare_pr.md
+    working_dir: "{{ implement_fix.output.worktree_used or resolve_env.output.worktree }}"
+    timeout_seconds: 600
+    max_agent_iterations: 40
+    output:
+      action:
+        type: string
+        enum: ["create", "noop"]
+        description: "create = open the draft PR; noop = take no action"
+      noop_reason:
+        type: string
+        nullable: true
+        description: "Short reason when action is noop, else null"
+      title:
+        type: string
+        nullable: true
+        description: "The PR title, else null"
+      body:
+        type: string
+        nullable: true
+        description: "The complete PR body following the repo's PR template, else null"
+      head_branch:
+        type: string
+        nullable: true
+        description: "The branch to open the PR from, else null"
+      base_branch:
+        type: string
+        nullable: true
+        description: "The branch to merge into, else null (defaults to workflow input)"
+    routes:
+      - to: noop_end
+        when: "action == 'noop'"
+      - to: review_gate
+
+  # --- Human gate: review the drafted PR before it is created -----------------
+  # Nothing has been written to GitHub yet; the reviewer sees the exact title
+  # and body the deterministic step will submit.
+  - name: review_gate
+    type: human_gate
+    description: "Review the drafted PR title and body before creation"
+    prompt: |
+      ## PR ready for review — issue #{{ workflow.input.issue_number }}
+
+      The draft PR is ready to be created. Nothing has been written to GitHub
+      yet. The diff it describes is in the worktree at
+      {{ implement_fix.output.worktree_used }} (`git log` / `git diff` against
+      the base branch).
+
+      **Title:** {{ prepare_pr.output.title }}
+
+      **Branches:** `{{ prepare_pr.output.head_branch }}` →
+      `{{ prepare_pr.output.base_branch }}` — will be created as a **draft**
+      from the fork.
+
+      **Body:**
+
+      {{ prepare_pr.output.body }}
+    options:
+      - label: "Open draft PR"
+        value: open
+        description: "Create the PR exactly as shown (always as a draft)"
+        route: create_pr
+      - label: "Revise"
+        value: revise
+        description: "Send the title/body back to the drafting agent with feedback"
+        route: prepare_pr
+        prompt_for: feedback
+      - label: "Abandon"
+        value: abandon
+        description: "Do not open a PR"
+        route: abandoned_end
+
+  - name: abandoned_end
+    type: terminate
+    status: success
+    reason: "PR draft reviewed and abandoned at the review gate; no PR opened."
+
+  - name: noop_end
+    type: terminate
+    status: success
+    reason: "No PR opened: {% if prepare_pr is defined %}{{ prepare_pr.output.noop_reason }}{% else %}{{ implement_fix.output.noop_reason }}{% endif %}"
+
+  # --- Create PR: deterministic script enforcing draft + template contract ----
+  - name: create_pr
+    type: script
+    description: "Validate title/body/branches and open the draft PR via gh CLI"
+    command: python3
+    timeout: 300
+    args:
+      - "{{ workflow.dir }}/create_pr.py"
+      - "{{ workflow.input.repository }}"
+      - "{{ workflow.input.issue_number }}"
+      - "{{ workflow.input.base_branch }}"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/data"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/scratch/pr-output.json"
+      - "{{ implement_fix.output.worktree_used }}"
+    stdin: "{{ prepare_pr.output | tojson }}"
+    routes:
+      - to: $end
+        when: "exit_code == 0"
+      - to: pr_failed
+
+  - name: pr_failed
+    type: terminate
+    status: failed
+    reason: "Draft PR creation failed: {{ create_pr.output.errors | default(create_pr.output.stderr) | join('; ') }}"
+
+output:
+  pr_url: "{% if create_pr is defined %}{{ create_pr.output.pr_url }}{% else %}null{% endif %}"
+  pr_number: "{% if create_pr is defined %}{{ create_pr.output.pr_number }}{% else %}null{% endif %}"
+  draft: "{% if create_pr is defined %}{{ create_pr.output.draft }}{% else %}false{% endif %}"
+  branch: "{% if implement_fix is defined %}{{ implement_fix.output.branch }}{% else %}null{% endif %}"
+  reused_worktree: "{% if prefetch_context is defined %}{{ prefetch_context.output.reused_worktree }}{% else %}null{% endif %}"
+  reused_venv: "{% if prefetch_context is defined %}{{ prefetch_context.output.reused_venv }}{% else %}null{% endif %}"
+  errors: "{% if create_pr is defined %}{{ create_pr.output.errors }}{% else %}['workflow did not reach the create_pr step']{% endif %}"

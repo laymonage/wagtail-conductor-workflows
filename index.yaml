@@ -6,3 +6,10 @@ workflows:
       apply component labels, verify bug reproductions, and post one summary
       comment.
     path: workflows/issue-triage/workflow.yaml
+  issue-to-pr:
+    description: >
+      Implement a fix or enhancement for a (usually triaged) Wagtail issue and
+      open a draft pull request from your fork. Reuses reproduction
+      environments from prior issue-triage runs of the same issue when
+      available, and fills in the repo's PR template.
+    path: workflows/issue-to-pr/workflow.yaml
