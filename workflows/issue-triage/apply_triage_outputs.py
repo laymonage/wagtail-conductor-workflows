@@ -82,6 +82,7 @@ def main():
         "labels_removed": [],
         "body_updated": False,
         "comment_posted": False,
+        "mentions_stripped": [],
         "errors": [],
     }
 
