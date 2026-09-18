@@ -221,10 +221,12 @@ agents:
       and `status:Needs Review`.
 
       **For your description, the repo's PR template applies** — it needs the
-      `Fixes #{{ workflow.input.issue }}` link, a `### Description` section,
-      and a `### AI usage` disclosure (the code was written by the AI agent
-      implementing this workflow; describe what it did and what you verified).
-      The implementation agent's account of the change, for reference:
+      `Fixes #{{ workflow.input.issue }}` link, a `### Description` section, a
+      `### Tested locally` section (what you verified by hand or by running
+      the tests yourself), and a `### AI usage` disclosure (the code was
+      written by the AI agent implementing this workflow; describe what it did
+      and what you verified). The implementation agent's account of the
+      change, for reference:
 
       {{ implement_fix.output.summary }}
 

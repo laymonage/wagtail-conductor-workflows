@@ -69,7 +69,8 @@ dir), on a `fix/issue-<n>` / `feature/issue-<n>` / `docs/issue-<n>` branch
   human-written.
 - A **description gate** therefore asks you to write the description before
   anything is created: it shows the proposed title, branches, labels, the
-  template requirements (`Fixes #<n>`, `### Description`, `### AI usage`), and
+  template requirements (`Fixes #<n>`, `### Description`,
+  `### Tested locally`, `### AI usage`), and
   the implementation agent's summary for reference. You write the description
   (or abandon); if submission fails validation, the error is shown at the same
   gate so you can fix it and retry.
