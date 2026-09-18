@@ -59,16 +59,16 @@ agents:
       - "{{ workflow.input.wagtail_dir }}"
       - "{{ workflow.dir }}"
     routes:
-      - to: pr_not_open
-        when: "pr_state != 'OPEN'"
-      - to: review
-        when: "exit_code == 0"
       - to: prefetch_failed
+        when: "pr_state == 'ERROR'"
+      - to: pr_not_open
+        when: "pr_state != 'OPEN' and pr_state != 'ERROR'"
+      - to: review
 
   - name: prefetch_failed
     type: terminate
     status: failed
-    reason: "Could not prefetch review context: {{ prefetch_context.output.stderr }}"
+    reason: "Could not prefetch review context: {{ prefetch_context.output.error | default(prefetch_context.output.stderr) }}"
 
   - name: pr_not_open
     type: terminate

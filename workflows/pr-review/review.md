@@ -10,7 +10,7 @@ You have a **soft budget of 30 minutes**; the engine hard-kills this step at 45 
 
 ## Working environment
 
-- The PR is checked out in a git worktree at `{{ prefetch_context.output.worktree }}` — this is your working directory. Do **not** commit or push anything; leave the tree as you found it (test runs may write caches/DBs — that's fine).
+- The PR is checked out in a git worktree at `{{ prefetch_context.output.worktree }}` — this is your working directory. HEAD is detached at the PR head (that's expected; do not create branches). Do **not** commit or push anything; leave the tree as you found it (test runs may write caches/DBs — that's fine).
 - The base branch snapshot is at commit `{{ prefetch_context.output.base_sha }}`: view the change with `git diff {{ prefetch_context.output.base_sha }}...HEAD` and `git log --oneline {{ prefetch_context.output.base_sha }}..HEAD`. The PR claims to merge `{{ prefetch_context.output.head_ref }}` into `{{ prefetch_context.output.base_ref }}`.
 - Run Wagtail's test suite with the `run-tests` skill.
 

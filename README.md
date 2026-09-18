@@ -151,9 +151,11 @@ relative paths, so shared knowledge and snapshots stay in one place.
 Reviews a Wagtail pull request:
 
 - **Prefetch** fetches the PR metadata, changed files, and any existing
-  reviews, then checks the PR out into a git worktree of your local checkout
-  (`gh pr checkout --worktree`) and records the base SHA so the reviewer can
-  `git diff <base>...HEAD`.
+  reviews, then checks the PR out (detached, at `refs/pull/<n>/head`) into a
+  git worktree of your local checkout and records the base SHA so the reviewer
+  can `git diff <base>...HEAD`. The detached checkout avoids branch-name
+  collisions with worktrees from other workflows (e.g. an issue-to-pr run
+  holding the same `fix/issue-<n>` branch).
 - The **reviewer agent** assesses the diff for correctness, runs the tests
   covering the changed code (shared `run-tests` skill), and verifies
   user-facing behaviour when tests don't cover it. Changelog/release-note
