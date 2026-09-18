@@ -1,9 +1,9 @@
 # Wagtail Issue → Pull Request — Phase 1: Implementation
 
-You are implementing a fix or enhancement for issue #{{ workflow.input.issue_number }} in `{{ workflow.input.repository }}` and preparing a branch for a **draft pull request**. A later phase writes the PR title and description from your summary and the branch diff — your job is the code, the tests, and a clear account of what you did and why.
+You are implementing a fix or enhancement for issue #{{ workflow.input.issue }} in `{{ workflow.input.repository }}` and preparing a branch for a **draft pull request**. A later phase writes the PR title and description from your summary and the branch diff — your job is the code, the tests, and a clear account of what you did and why.
 
 {% if time_budget_gate is defined %}
-**This is a continuation pass.** A previous implementation pass used up its time budget and a reviewer chose to keep going. Read `.runs/{{ workflow.input.issue_number }}/scratch/NOTES.md` first and continue where it left off — do not redo work that is already recorded there.
+**This is a continuation pass.** A previous implementation pass used up its time budget and a reviewer chose to keep going. Read `.runs/{{ workflow.input.issue }}/scratch/NOTES.md` first and continue where it left off — do not redo work that is already recorded there.
 {% endif %}
 
 ## Time budget
@@ -59,9 +59,9 @@ Classify the issue from its labels (bug report, feature/enhancement, maintenance
 
 Create your working branch in the worktree, based on the repo's default branch (`git fetch` the base remote first if needed):
 
-- Bugs: `fix/issue-{{ workflow.input.issue_number }}`
-- Features/enhancements and maintenance: `feature/issue-{{ workflow.input.issue_number }}`
-- Documentation: `docs/issue-{{ workflow.input.issue_number }}`
+- Bugs: `fix/issue-{{ workflow.input.issue }}`
+- Features/enhancements and maintenance: `feature/issue-{{ workflow.input.issue }}`
+- Documentation: `docs/issue-{{ workflow.input.issue }}`
 
 Record the final branch name in your output.
 

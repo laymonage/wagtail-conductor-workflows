@@ -188,9 +188,9 @@ conductor registry add wagtail /path/to/this/repo
 Run it:
 
 ```bash
-conductor run issue-triage@wagtail --input issue_number=1234
-conductor run issue-to-pr@wagtail --input issue_number=1234
-conductor run pr-review@wagtail --input pr_number=5678
+conductor run issue-triage@wagtail --input issue=1234
+conductor run issue-to-pr@wagtail --input issue=1234
+conductor run pr-review@wagtail --input pr=5678
 ```
 
 Optional inputs for `issue-triage`: `repository` (default `wagtail/wagtail`),
@@ -211,7 +211,7 @@ created from).
 You can also run the YAML directly:
 
 ```bash
-conductor run workflows/issue-triage/workflow.yaml --input issue_number=1234
+conductor run workflows/issue-triage/workflow.yaml --input issue=1234
 ```
 
 ### Refreshing the label snapshot

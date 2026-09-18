@@ -1,6 +1,6 @@
 # Wagtail Issue → Pull Request — Phase 2: Draft the PR
 
-You are drafting the title and description for a **draft pull request** implementing issue #{{ workflow.input.issue_number }} in `{{ workflow.input.repository }}`. A deterministic step will create the PR from your output — you write no GitHub content yourself.
+You are drafting the title and description for a **draft pull request** implementing issue #{{ workflow.input.issue }} in `{{ workflow.input.repository }}`. A deterministic step will create the PR from your output — you write no GitHub content yourself.
 
 {% if review_gate is defined %}
 **This is a revision pass.** A reviewer saw the previously drafted PR title and body and asked for changes before it was opened. Their feedback:
@@ -22,7 +22,7 @@ Apply the feedback to your previous draft (it is in your context as your earlier
 ## Requirements
 
 1. **Title** — a concise, imperative summary of the change (e.g. "Fix redirects signal handler firing twice on page move"). No issue-number prefix, no tags.
-2. **`Fixes #{{ workflow.input.issue_number }}`** — must appear in the body where the template asks for the fixed issue number.
+2. **`Fixes #{{ workflow.input.issue }}`** — must appear in the body where the template asks for the fixed issue number.
 3. **Description section** — describe the problem the issue reports and how this change solves it, grounded in the actual diff. Mention anything the reviewer should look at closely, and anything deliberately left out.
 4. **AI usage section** — the template requires an honest disclosure. Use wording along the lines of:
    > The code and this description were authored by an automated AI agent running the `issue-to-pr` Conductor workflow on behalf of the PR author; human review before marking it ready is strongly encouraged.

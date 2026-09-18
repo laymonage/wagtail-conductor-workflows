@@ -1,6 +1,6 @@
 # Wagtail Issue Triage — Phase 2: Draft the outcome
 
-You are drafting the final triage decision for issue #{{ workflow.input.issue_number }} in `{{ workflow.input.repository }}`. An investigation phase already ran; you work from its findings — **do not reproduce anything yourself and do not run long commands.** You may read the Wagtail source at `{{ workflow.input.wagtail_dir }}` to verify specifics, and the investigation's running notes at `{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/scratch/NOTES.md` for detail. Read the prefetched issue data at `{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/data/issue.json` (title, body, author, current labels) and `similar_issues.json` when needed.
+You are drafting the final triage decision for issue #{{ workflow.input.issue }} in `{{ workflow.input.repository }}`. An investigation phase already ran; you work from its findings — **do not reproduce anything yourself and do not run long commands.** You may read the Wagtail source at `{{ workflow.input.wagtail_dir }}` to verify specifics, and the investigation's running notes at `{{ workflow.dir }}/.runs/{{ workflow.input.issue }}/scratch/NOTES.md` for detail. Read the prefetched issue data at `{{ workflow.dir }}/.runs/{{ workflow.input.issue }}/data/issue.json` (title, body, author, current labels) and `similar_issues.json` when needed.
 
 You do not perform any GitHub write operations yourself. Decide what should happen and return it as structured JSON — a separate deterministic step applies labels, updates the issue body, and posts the comment exactly once.
 
@@ -26,7 +26,7 @@ Put a single comment in `comment` covering the findings.
 - Put long test snippets, tracebacks, and command output inside `<details>` elements.
 - Say what was actually done. If no environment could be set up, no test ran, or something is uncertain, state that instead of implying verification.
 - Address the reporter directly when asking for missing information — but never @-mention anyone: do not include `@username` anywhere in the comment (no `@` mentions of the reporter, reviewers, maintainers, or any other user; refer to people by name or role in plain text instead).
-- If the investigation modified files in a worktree (its findings will say so, and diffs are saved under `.runs/{{ workflow.input.issue_number }}/scratch/diffs/`), attach each diff at the end of the comment: one `<details>` element per worktree with a `<summary>` naming it (e.g. "Changes made in the Wagtail worktree during reproduction"), containing the diff verbatim in a fenced ` ```diff ` code block. Do not alter the diff content.
+- If the investigation modified files in a worktree (its findings will say so, and diffs are saved under `.runs/{{ workflow.input.issue }}/scratch/diffs/`), attach each diff at the end of the comment: one `<details>` element per worktree with a `<summary>` naming it (e.g. "Changes made in the Wagtail worktree during reproduction"), containing the diff verbatim in a fenced ` ```diff ` code block. Do not alter the diff content.
 
 ## Labels
 

@@ -28,7 +28,7 @@ workflow:
     emoji: 🔍
 
   input:
-    issue_number:
+    issue:
       type: string
       required: true
       description: "The GitHub issue number to triage"
@@ -57,7 +57,7 @@ agents:
     timeout: 300
     args:
       - "{{ workflow.dir }}/prefetch.sh"
-      - "{{ workflow.input.issue_number }}"
+      - "{{ workflow.input.issue }}"
       - "{{ workflow.input.repository }}"
       - "{{ workflow.dir }}"
     routes:
@@ -111,11 +111,11 @@ agents:
     prompt: |
       ## Triage time budget reached
 
-      The investigation phase for issue #{{ workflow.input.issue_number }} hit its
+      The investigation phase for issue #{{ workflow.input.issue }} hit its
       time budget before reaching a conclusion.
 
       Its running notes are in
-      `workflows/issue-triage/.runs/{{ workflow.input.issue_number }}/scratch/NOTES.md`.
+      `workflows/issue-triage/.runs/{{ workflow.input.issue }}/scratch/NOTES.md`.
 
       How should the triage proceed?
     options:
@@ -189,8 +189,8 @@ agents:
     args:
       - "{{ workflow.dir }}/apply_triage_outputs.py"
       - "{{ workflow.input.repository }}"
-      - "{{ workflow.input.issue_number }}"
-      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/scratch/triage-output.json"
+      - "{{ workflow.input.issue }}"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue }}/scratch/triage-output.json"
     stdin: "{{ triage_finalize.output | tojson }}"
     output:
       labels_added:

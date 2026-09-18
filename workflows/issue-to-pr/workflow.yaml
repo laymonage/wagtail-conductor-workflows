@@ -30,7 +30,7 @@ workflow:
     emoji: 🌿
 
   input:
-    issue_number:
+    issue:
       type: string
       required: true
       description: "The GitHub issue number to implement and open a PR for"
@@ -64,7 +64,7 @@ agents:
     timeout: 300
     args:
       - "{{ workflow.dir }}/prefetch.sh"
-      - "{{ workflow.input.issue_number }}"
+      - "{{ workflow.input.issue }}"
       - "{{ workflow.input.repository }}"
       - "{{ workflow.input.triage_runs_dir }}"
       - "{{ workflow.dir }}"
@@ -140,9 +140,9 @@ agents:
     prompt: |
       ## Implementation time budget reached
 
-      The implementation phase for issue #{{ workflow.input.issue_number }} hit its
+      The implementation phase for issue #{{ workflow.input.issue }} hit its
       time budget before finishing. Its running notes are in
-      `workflows/issue-to-pr/.runs/{{ workflow.input.issue_number }}/scratch/NOTES.md`.
+      `workflows/issue-to-pr/.runs/{{ workflow.input.issue }}/scratch/NOTES.md`.
 
       How should the workflow proceed?
     options:
@@ -210,7 +210,7 @@ agents:
     type: human_gate
     description: "Review the drafted PR title and body before creation"
     prompt: |
-      ## PR ready for review — issue #{{ workflow.input.issue_number }}
+      ## PR ready for review — issue #{{ workflow.input.issue }}
 
       The draft PR is ready to be created. Nothing has been written to GitHub
       yet. The diff it describes is in the worktree at
@@ -260,10 +260,10 @@ agents:
     args:
       - "{{ workflow.dir }}/create_pr.py"
       - "{{ workflow.input.repository }}"
-      - "{{ workflow.input.issue_number }}"
+      - "{{ workflow.input.issue }}"
       - "{{ workflow.input.base_branch }}"
-      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/data"
-      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue_number }}/scratch/pr-output.json"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue }}/data"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.issue }}/scratch/pr-output.json"
       - "{{ implement_fix.output.worktree_used }}"
     stdin: "{{ prepare_pr.output | tojson }}"
     routes:
@@ -278,7 +278,7 @@ agents:
 
 output:
   pr_url: "{% if create_pr is defined %}{{ create_pr.output.pr_url }}{% else %}null{% endif %}"
-  pr_number: "{% if create_pr is defined %}{{ create_pr.output.pr_number }}{% else %}null{% endif %}"
+  pr: "{% if create_pr is defined %}{{ create_pr.output.pr_number }}{% else %}null{% endif %}"
   draft: "{% if create_pr is defined %}{{ create_pr.output.draft }}{% else %}false{% endif %}"
   labels_added: "{% if create_pr is defined %}{{ create_pr.output.labels_added }}{% else %}[]{% endif %}"
   labels_dropped: "{% if create_pr is defined %}{{ create_pr.output.labels_dropped }}{% else %}[]{% endif %}"

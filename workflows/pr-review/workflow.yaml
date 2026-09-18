@@ -30,7 +30,7 @@ workflow:
     emoji: 📋
 
   input:
-    pr_number:
+    pr:
       type: string
       required: true
       description: "The GitHub pull request number to review"
@@ -54,7 +54,7 @@ agents:
     timeout: 300
     args:
       - "{{ workflow.dir }}/prefetch.sh"
-      - "{{ workflow.input.pr_number }}"
+      - "{{ workflow.input.pr }}"
       - "{{ workflow.input.repository }}"
       - "{{ workflow.input.wagtail_dir }}"
       - "{{ workflow.dir }}"
@@ -73,7 +73,7 @@ agents:
   - name: pr_not_open
     type: terminate
     status: success
-    reason: "PR #{{ workflow.input.pr_number }} is {{ prefetch_context.output.pr_state }}; nothing to review."
+    reason: "PR #{{ workflow.input.pr }} is {{ prefetch_context.output.pr_state }}; nothing to review."
 
   # --- Review the PR -----------------------------------------------------------
   - name: review
@@ -119,11 +119,11 @@ agents:
     type: human_gate
     description: "Sign off on the review before it is submitted"
     prompt: |
-      ## Review ready for sign-off — PR #{{ workflow.input.pr_number }}
+      ## Review ready for sign-off — PR #{{ workflow.input.pr }}
 
       {% if review.output.status == 'out_of_time' %}**⚠ The review ran out of
       time — findings are partial.** Running notes:
-      `workflows/pr-review/.runs/{{ workflow.input.pr_number }}/scratch/NOTES.md`.
+      `workflows/pr-review/.runs/{{ workflow.input.pr }}/scratch/NOTES.md`.
 
       {% endif %}**PR:** "{{ prefetch_context.output.pr_title }}" by
       {{ prefetch_context.output.pr_author }} —
@@ -148,7 +148,7 @@ agents:
       - {{ c }}
       {% endfor %}
 
-      Full comment bodies: `workflows/pr-review/.runs/{{ workflow.input.pr_number }}/scratch/review-output.json`.
+      Full comment bodies: `workflows/pr-review/.runs/{{ workflow.input.pr }}/scratch/review-output.json`.
     options:
       - label: "Submit review"
         value: submit
@@ -183,10 +183,10 @@ agents:
     args:
       - "{{ workflow.dir }}/submit_review.py"
       - "{{ workflow.input.repository }}"
-      - "{{ workflow.input.pr_number }}"
-      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr_number }}/data"
-      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr_number }}/scratch/review-output.json"
-      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr_number }}/scratch/review-result.json"
+      - "{{ workflow.input.pr }}"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr }}/data"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr }}/scratch/review-output.json"
+      - "{{ workflow.dir }}/.runs/{{ workflow.input.pr }}/scratch/review-result.json"
     stdin: "{{ review.output | tojson }}"
     routes:
       - to: $end
