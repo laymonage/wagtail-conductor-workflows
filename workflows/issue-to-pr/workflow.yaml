@@ -182,11 +182,7 @@ agents:
       title:
         type: string
         nullable: true
-        description: "The PR title, else null"
-      body:
-        type: string
-        nullable: true
-        description: "The complete PR body following the repo's PR template, else null"
+        description: "The proposed PR title, else null"
       head_branch:
         type: string
         nullable: true
@@ -201,41 +197,49 @@ agents:
     routes:
       - to: noop_end
         when: "action == 'noop'"
-      - to: review_gate
+      - to: description_gate
 
-  # --- Human gate: review the drafted PR before it is created -----------------
-  # Nothing has been written to GitHub yet; the reviewer sees the exact title
-  # and body the deterministic step will submit.
-  - name: review_gate
+  # --- Human gate: the PR description is written by the human, not the agent --
+  # Per Wagtail's contributing guidelines, PR descriptions are human-written.
+  # The agent proposes only the title and labels; the description is collected
+  # here and passed straight to the deterministic submit step.
+  - name: description_gate
     type: human_gate
-    description: "Review the drafted PR title and body before creation"
+    description: "Write the PR description before the draft PR is created"
     prompt: |
-      ## PR ready for review — issue #{{ workflow.input.issue }}
+      ## Write the PR description — issue #{{ workflow.input.issue }}
 
-      The draft PR is ready to be created. Nothing has been written to GitHub
-      yet. The diff it describes is in the worktree at
-      {{ implement_fix.output.worktree_used }} (`git log` / `git diff` against
-      the base branch).
+      The branch is ready and nothing has been written to GitHub. The diff is
+      in the worktree at {{ implement_fix.output.worktree_used }}
+      (`git log` / `git diff` against the base branch).
 
-      **Title:** {{ prepare_pr.output.title }}
+      **Proposed title:** {{ prepare_pr.output.title }}
 
       **Branches:** `{{ prepare_pr.output.head_branch }}` →
       `{{ prepare_pr.output.base_branch }}` — will be created as a **draft**
-      from the fork.
+      from the fork, with labels {{ prepare_pr.output.labels_to_add | join(', ') }}
+      and `status:Needs Review`.
 
-      **Body:**
+      **For your description, the repo's PR template applies** — it needs the
+      `Fixes #{{ workflow.input.issue }}` link, a `### Description` section,
+      and a `### AI usage` disclosure (the code was written by the AI agent
+      implementing this workflow; describe what it did and what you verified).
+      The implementation agent's account of the change, for reference:
 
-      {{ prepare_pr.output.body }}
+      {{ implement_fix.output.summary }}
+
+      {% if create_pr is defined %}
+      **The previous submission attempt failed:**
+      {{ create_pr.output.errors | join('; ') }}
+      Fix the description (or title/branch inputs by abandoning and re-running)
+      and submit again.
+      {% endif %}
     options:
       - label: "Open draft PR"
         value: open
-        description: "Create the PR exactly as shown (always as a draft)"
+        description: "Create the PR with your description (always as a draft)"
         route: create_pr
-      - label: "Revise"
-        value: revise
-        description: "Send the title/body back to the drafting agent with feedback"
-        route: prepare_pr
-        prompt_for: feedback
+        prompt_for: description
       - label: "Abandon"
         value: abandon
         description: "Do not open a PR"
@@ -265,16 +269,11 @@ agents:
       - "{{ workflow.dir }}/.runs/{{ workflow.input.issue }}/data"
       - "{{ workflow.dir }}/.runs/{{ workflow.input.issue }}/scratch/pr-output.json"
       - "{{ implement_fix.output.worktree_used }}"
-    stdin: "{{ prepare_pr.output | tojson }}"
+    stdin: '{"title": {{ prepare_pr.output.title | tojson }}, "body": {{ description_gate.output.additional_input.description | tojson }}, "head_branch": {{ prepare_pr.output.head_branch | tojson }}, "base_branch": {{ prepare_pr.output.base_branch | tojson }}, "labels_to_add": {{ prepare_pr.output.labels_to_add | tojson }}, "fork_owner": {{ implement_fix.output.fork_owner | tojson }}}'
     routes:
       - to: $end
         when: "exit_code == 0"
-      - to: pr_failed
-
-  - name: pr_failed
-    type: terminate
-    status: failed
-    reason: "Draft PR creation failed: {{ create_pr.output.errors | default(create_pr.output.stderr) | join('; ') }}"
+      - to: description_gate   # show the error at the gate; the human can fix and retry
 
 output:
   pr_url: "{% if create_pr is defined %}{{ create_pr.output.pr_url }}{% else %}null{% endif %}"

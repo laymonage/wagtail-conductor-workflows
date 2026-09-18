@@ -63,26 +63,31 @@ a **draft pull request** from your fork:
 dir), on a `fix/issue-<n>` / `feature/issue-<n>` / `docs/issue-<n>` branch
   based on the default branch, commits the change plus regression tests, runs
   them via the shared `run-tests` skill, and pushes the branch to your fork.
-- A drafting phase then writes the PR title and body following the repo's
-  **PR template** (every section filled, `Fixes #<n>` linking the issue, honest
-  AI-usage disclosure, no @-mentions).
-- Before anything is written to GitHub, a **review gate** shows the exact
-  title and body that will be submitted: open the draft PR, send it back to
-  the drafting agent with feedback, or abandon without opening anything.
+- A preparation phase then proposes the PR **title** and picks the
+  `component:*` / `type:*` labels, but deliberately does **not** write the PR
+  description — per Wagtail's contributing guidelines, PR descriptions are
+  human-written.
+- A **description gate** therefore asks you to write the description before
+  anything is created: it shows the proposed title, branches, labels, the
+  template requirements (`Fixes #<n>`, `### Description`, `### AI usage`), and
+  the implementation agent's summary for reference. You write the description
+  (or abandon); if submission fails validation, the error is shown at the same
+  gate so you can fix it and retry.
 - PR creation is deterministic and always `--draft`: a Python step validates
   the body against the template snapshot (all section headers present) and the
-  issue link, strips mentions, applies `component:*` / `type:*` labels chosen
-  by the drafting agent (from the same label snapshot issue-triage uses, plus
+  issue link, strips mentions, applies the chosen `component:*` / `type:*`
+  labels (from the same label snapshot issue-triage uses, plus
   `status:Needs Review` unconditionally), and creates the PR via `gh`. The
-  agent can never open a non-draft PR or skip the template.
+  agent can never open a non-draft PR, write the description, or skip the
+  template.
 
 Like `issue-triage`, implementation runs on a time budget (~45 minutes with a
 hard timeout): when it runs out, a human gate offers keep-going / open a draft
-from the partial work / abandon. A second gate sits between drafting and
-submission, so no PR is ever created without a human seeing exactly what will
-be posted.
+from the partial work / abandon. The description gate sits between preparation
+and submission: the PR body is written by you, and no PR is ever created
+without it.
 
-The implementation agent decides the code but the PR itself is applied by a
+The implementation agent decides the code, and the PR itself is applied by a
 deterministic script that enforces the draft flag and the template contract —
 same decide/apply split as `issue-triage`.
 
@@ -112,7 +117,8 @@ workflows/
     ├── prefetch.sh                 # prefetch: issue state, PR template,
                                     #   open-PR guard, triage-run reuse
     ├── implement.md                # phase 1: implementation prompt
-    ├── prepare_pr.md               # phase 2: PR-drafting prompt
+    ├── prepare_pr.md               # phase 2: title/labels prep (description
+                                    #   is written by the human at the gate)
     └── create_pr.py                # deterministic draft-PR applier
 └── pr-review/                      # one directory per workflow, assets flat
     ├── workflow.yaml               # workflow definition
@@ -238,8 +244,9 @@ run's data directory automatically.)
   the scratch directory if that concerns you.
 - `issue-to-pr` pushes commits to **your fork** and opens a PR — always as a
   **draft**, always from your own account, never closing or editing issues.
-  The PR body is validated against the repo's PR template and stripped of
-  @-mentions before creation.
+  The PR description is written by you at the gate (never by the agent), then
+  validated against the repo's PR template and stripped of @-mentions before
+  creation.
 - `pr-review` never approves or requests changes: its reviews are always
   submitted as **COMMENT** reviews, only after the sign-off gate, from your
   own account, with @-mentions stripped.
