@@ -43,6 +43,14 @@ VERDICT_EVENTS = {
 SEGMENT_RE = re.compile(r"(```.*?```|`[^`\n]+`)", re.DOTALL)
 MENTION_RE = re.compile(r"(^|\s)@([A-Za-z0-9][A-Za-z0-9-]{0,37})")
 
+# Prepended to the overall comment so readers know a machine wrote it
+# (mirrors apply_triage_outputs.py in the issue-triage workflow).
+DISCLAIMER = (
+    "> [!NOTE]\n"
+    "> This review was posted by an automated AI review agent and may contain mistakes. \n"
+    "> Please verify its findings before relying on them.\n"
+)
+
 
 def strip_mentions(text: str) -> tuple[str, list[str]]:
     """Remove @-mentions outside code blocks/spans; return (text, names)."""
@@ -83,6 +91,8 @@ def main():
         "comments_submitted": 0,
         "comments_dropped": [],
         "mentions_stripped": [],
+        "disclaimer_added": False,
+        "folded_details": False,
         "errors": [],
     }
 
@@ -116,6 +126,34 @@ def main():
         fail("validation failed: overall_comment must be a string or null")
     overall = (overall or "").strip()
 
+    # Never mention users: strip @-mentions outside code so the review cannot
+    # notify anyone.
+    mentions: list[str] = []
+    overall, mention_names = strip_mentions(overall)
+    mentions.extend(mention_names)
+
+    # Fold backstop: keep the main comment to one paragraph — everything after
+    # the first blank line goes into a <details> block if the agent didn't
+    # build one itself. Only applied when there is something to fold and no
+    # <details> element exists yet. Computed on the body BEFORE the disclaimer
+    # is prepended, so a one-paragraph comment stays fully visible.
+    if "<details" not in overall:
+        head, sep, rest = overall.partition("\n\n")
+        if sep and rest.strip():
+            overall = (
+                head
+                + "\n\n<details>\n<summary>Test results and detailed findings</summary>\n\n"
+                + rest.strip()
+                + "\n\n</details>"
+            )
+            result["folded_details"] = True
+
+    # Disclaimer at the top, deduped in case the agent already included one
+    # (mirrors apply_triage_outputs.py in the issue-triage workflow).
+    if "automated AI" not in overall[:300]:
+        overall = DISCLAIMER + "\n" + overall.lstrip()
+        result["disclaimer_added"] = True
+
     # --- inline comments: validate against the PR's changed files -------------
     try:
         changed = set(
@@ -128,7 +166,6 @@ def main():
         )
 
     comments = []
-    mentions: list[str] = []
     for i, c in enumerate(payload.get("comments") or []):
         drop_prefix = f"comment {i}"
         if not isinstance(c, dict):

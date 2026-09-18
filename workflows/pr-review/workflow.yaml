@@ -142,6 +142,10 @@ agents:
 
       {{ review.output.overall_comment or "_(none)_" }}
 
+      An AI-generated disclaimer note is prepended to the comment on
+      submission, and anything after the first paragraph is folded into a
+      `<details>` block if it isn't already.
+
       ### Inline comments ({{ review.output.comments_digest | length }})
 
       {% for c in review.output.comments_digest %}
@@ -204,4 +208,6 @@ output:
   verdict: "{% if review is defined %}{{ review.output.verdict }}{% else %}null{% endif %}"
   comments_submitted: "{% if submit_review is defined %}{{ submit_review.output.comments_submitted }}{% else %}0{% endif %}"
   comments_dropped: "{% if submit_review is defined %}{{ submit_review.output.comments_dropped }}{% else %}[]{% endif %}"
+  disclaimer_added: "{% if submit_review is defined %}{{ submit_review.output.disclaimer_added }}{% else %}false{% endif %}"
+  folded_details: "{% if submit_review is defined %}{{ submit_review.output.folded_details }}{% else %}false{% endif %}"
   errors: "{% if submit_review is defined %}{{ submit_review.output.errors }}{% else %}['workflow did not reach the submit step']{% endif %}"

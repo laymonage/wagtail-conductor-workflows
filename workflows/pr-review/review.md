@@ -54,6 +54,27 @@ Pin concrete, actionable feedback to lines:
 - Prefer a handful of substantive comments over noise; put style nits inline and bigger-picture points in the overall comment.
 - Suggested fixes may use a ` ```suggestion ` fenced block in the body.
 
+## Overall comment structure
+
+The overall comment (review body) must be scannable:
+
+- **First paragraph: at most one short paragraph** — the verdict and the one or two things a reviewer should look at first. No headings, lists, or test output there.
+- **Everything else goes inside a `<details>` element**, e.g.:
+
+  ```
+  One-paragraph verdict summary.
+
+  <details>
+  <summary>Test results and detailed findings</summary>
+
+  (test commands + output, per-file findings, follow-up notes — all here)
+
+  </details>
+  ```
+
+  Keep blank lines inside the `<details>` block so GitHub renders the markdown.
+- The submit step prepends an AI-generated disclaimer note automatically — do not add one yourself. Inline comments don't need the disclaimer or the `<details>` treatment.
+
 Write the full review payload to `{{ workflow.dir }}/.runs/{{ workflow.input.pr }}/scratch/review-output.json` with exactly this shape (the submit step reads this file — the gate sees your digest, so the file is the source of truth):
 
 ```json
